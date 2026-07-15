@@ -591,7 +591,7 @@
     });
 
     // =========================================================
-    // CONSULTA DIRECTA CON REINTENTOS Y FALLBACK DE MODELOS
+    // CONSULTA DIRECTA CON REINTENTOS Y FALLBACK DE MODELOS VIGENTES
     // =========================================================
     btnAi.addEventListener('click', async () => {
         const apiKey = localStorage.getItem('gemini_api_key');
@@ -642,13 +642,13 @@ Por favor, estructura tu respuesta de la siguiente forma utilizando viñetas y t
 1. **Resumen rápido de salud financiera:** Cuánto se ingresó y cuánto se gastó en total.
 2. **Los mayores desvíos de dinero:** Agrupa los gastos similares de forma lógica (ej. comidas, servicios, compras hormiga) y destaca cuáles son las categorías más pesadas.
 3. **Comparativa mensual:** Si hay datos de dos meses, contrasta cuál fue más caro y en qué rubros hubo variaciones.
-4. **Plan de acción y plan de ahorro (10%):** Recomendaciones hiper-concretas y viables para reducir gastos sin perder calidad de vida. Haz referencia a Nico y Ceci en tus consejos si es relevante.
+4. **Plan de acción y plan de ahorro (10%):** Recomendaciones hiper-concreta y viables para reducir gastos sin perder calidad de vida. Haz referencia a Nico y Ceci en tus consejos si es relevante.
             `;
 
-            // Lista de modelos a intentar en orden de preferencia
-            const modelosAIntentar = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-1.5-pro'];
+            // Modelos 100% activos y soportados en la API actual
+            const modelosAIntentar = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
             let respuestaExitosa = null;
-            let ultimoError = "";
+            let historialErrores = [];
 
             for (const modelo of modelosAIntentar) {
                 try {
@@ -665,27 +665,30 @@ Por favor, estructura tu respuesta de la siguiente forma utilizando viñetas y t
 
                     if (response.ok) {
                         respuestaExitosa = await response.json();
-                        break; // Si tiene éxito, salimos del bucle
+                        break; // Éxito: salimos del bucle
                     } else {
                         const errData = await response.json();
-                        ultimoError = errData.error ? errData.error.message : "Error de red";
-                        console.warn(`Modelo ${modelo} falló con: ${ultimoError}. Probando el siguiente...`);
+                        const msg = errData.error ? errData.error.message : "Error desconocido";
+                        historialErrores.push(`${modelo}: ${msg}`);
+                        console.warn(`Modelo ${modelo} falló: ${msg}. Probando el siguiente...`);
                     }
                 } catch (e) {
-                    ultimoError = e.message;
-                    console.warn(`Error de conexión con ${modelo}: ${ultimoError}. Probando el siguiente...`);
+                    historialErrores.push(`${modelo}: ${e.message}`);
+                    console.warn(`Error de conexión con ${modelo}: ${e.message}. Probando el siguiente...`);
                 }
             }
 
             if (respuestaExitosa && respuestaExitosa.candidates && respuestaExitosa.candidates[0]?.content?.parts[0]) {
                 aiResponseBox.innerText = respuestaExitosa.candidates[0].content.parts[0].text;
             } else {
-                throw new Error(`Ningún modelo pudo procesar la solicitud. Último error reportado: ${ultimoError}`);
+                // Si todos fallaron, listamos el detalle de cada uno para poder diagnosticar
+                const resumenErrores = historialErrores.map(err => `• ${err}`).join('\n');
+                throw new Error(`Ninguno de los modelos disponibles pudo procesar la solicitud.\n\nDetalle de errores:\n${resumenErrores}`);
             }
 
         } catch (error) {
             console.error(error);
-            aiResponseBox.innerText = `Ocurrió un error al consultar a Gemini: ${error.message}\n\nSi el error es de 'High Demand', por favor espera unos segundos y vuelve a intentar.`;
+            aiResponseBox.innerText = `Ocurrió un error al consultar a Gemini:\n\n${error.message}\n\nSi el error es debido a alta demanda (High Demand), por favor espera unos segundos e intenta nuevamente. Asegúrate de que tu clave local en el engranaje ⚙️ esté activa.`;
         } finally {
             btnAi.disabled = false;
             btnAi.innerText = "Analizar Gastos con Gemini";
