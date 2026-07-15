@@ -582,7 +582,7 @@
     });
 
     // =========================================================
-    // CONSULTA DIRECTA MEDIANTE FETCH (API v1 ESTABLE)
+    // CONSULTA DIRECTA MEDIANTE FETCH (API v1beta ACTUALIZADA)
     // =========================================================
     btnAi.addEventListener('click', async () => {
         const apiKey = localStorage.getItem('gemini_api_key');
@@ -594,7 +594,7 @@
         btnAi.disabled = true;
         btnAi.innerText = "Analizando gastos... Espere por favor";
         aiResponseBox.style.display = 'block';
-        aiResponseBox.innerText = "Recopilando datos de los últimos 2 meses e invocando a la Inteligencia Artificial...";
+        aiResponseBox.innerText = "Recopilando datos de los últimos 2 meses e invocando al nuevo motor Gemini 3.5...";
 
         try {
             // Recopilar y filtrar datos de los últimos 2 meses
@@ -638,8 +638,8 @@ Por favor, estructura tu respuesta de la siguiente forma utilizando viñetas y t
 4. **Plan de acción y plan de ahorro (10%):** Recomendaciones hiper-concreta y viables para reducir gastos sin perder calidad de vida. Haz referencia a Nico y Ceci en tus consejos si es relevante.
             `;
 
-            // Endpoint oficial en la API v1 (estable) de Google AI para el modelo gemini-1.5-flash
-            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            // Endpoint oficial v1beta con el nuevo modelo estándar gemini-3.5-flash
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
 
             const response = await fetch(url, {
                 method: "POST",
@@ -662,7 +662,7 @@ Por favor, estructura tu respuesta de la siguiente forma utilizando viñetas y t
 
             const data = await response.json();
             
-            // Extraer el texto de la respuesta estructurada de Google API
+            // Extraer el texto de la respuesta estructurada de la API de Google
             if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
                 aiResponseBox.innerText = data.candidates[0].content.parts[0].text;
             } else {
