@@ -390,9 +390,6 @@
         getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // Importar el SDK oficial de Google Gen AI preparado para navegadores
-    import { GoogleGenAI } from "https://esm.run/@google/genai";
-
     const firebaseConfig = {
         apiKey: "AIzaSyA0g6LsMmYZPgsPnSgNxjOSkkJmR7JTCJI",
         authDomain: "control-de-gastos-db169.firebaseapp.com",
@@ -585,7 +582,7 @@
     });
 
     // =========================================================
-    // INTEGRACIÓN CON LA API DE GEMINI USANDO EL SDK DE GOOGLE
+    // CONSULTA DIRECTA MEDIANTE FETCH PARA EVITAR TRABAS DE SDK
     // =========================================================
     btnAi.addEventListener('click', async () => {
         const apiKey = localStorage.getItem('gemini_api_key');
@@ -641,25 +638,41 @@ Por favor, estructura tu respuesta de la siguiente forma utilizando viñetas y t
 4. **Plan de acción y plan de ahorro (10%):** Recomendaciones hiper-concretas y viables para reducir gastos sin perder calidad de vida. Haz referencia a Nico y Ceci en tus consejos si es relevante.
             `;
 
-            // Inicializar el SDK de Google Gen AI con la clave
-            const ai = new GoogleGenAI({ apiKey: apiKey });
+            // Configurar llamada HTTP nativa
+            // Usamos la API v1beta que es compatible con llamadas POST directas y tiene el modelo gemini-1.5-flash estable.
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-            // Llamar al modelo gemini-2.5-flash mediante el SDK
-            const response = await ai.models.generateContent({
-                model: 'gemini-1.5-flash',
-                contents: promptContent,
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: promptContent
+                        }]
+                    }]
+                })
             });
 
-            // Mostrar el resultado
-            if (response && response.text) {
-                aiResponseBox.innerText = response.text;
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error ? errorData.error.message : "Error desconocido de red.");
+            }
+
+            const data = await response.json();
+            
+            // Extraer el texto de la respuesta estructurada de Google API
+            if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
+                aiResponseBox.innerText = data.candidates[0].content.parts[0].text;
             } else {
-                throw new Error("No se pudo obtener texto en la respuesta de Gemini.");
+                throw new Error("El formato de respuesta de la API no fue el esperado.");
             }
 
         } catch (error) {
             console.error(error);
-            aiResponseBox.innerText = `Ocurrió un error al consultar a Gemini: ${error.message}\n\nAsegúrate de que la API Key ingresada en el engranaje es correcta.`;
+            aiResponseBox.innerText = `Ocurrió un error al consultar a Gemini: ${error.message}\n\nAsegúrate de que la API Key ingresada en el engranaje es correcta y tiene permisos activos.`;
         } finally {
             btnAi.disabled = false;
             btnAi.innerText = "Analizar Gastos con Gemini";
