@@ -12,6 +12,7 @@
             --primary: #4a90e2;
             --income: #2ecc71;
             --expense: #e74c3c;
+            --ai-color: #8e44ad;
         }
 
         body {
@@ -68,6 +69,12 @@
             color: #7f8c8d;
         }
 
+        .right-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
         .logout-btn {
             background: none;
             border: none;
@@ -75,6 +82,14 @@
             cursor: pointer;
             font-weight: bold;
             padding: 5px 10px;
+        }
+
+        .settings-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px;
         }
 
         /* Selector de Período */
@@ -119,7 +134,7 @@
         .stat.inc { background-color: var(--income); }
         .stat.exp { background-color: var(--expense); }
 
-        .form-card {
+        .form-card, .ai-card {
             background: var(--card-bg);
             padding: 20px;
             border-radius: 12px;
@@ -159,8 +174,32 @@
             transition: background 0.2s;
         }
 
-        .btn-primary:hover {
-            background-color: #357abd;
+        .btn-primary:hover { background-color: #357abd; }
+
+        .btn-ai {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--ai-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 15px;
+        }
+        .btn-ai:hover { background-color: #732d91; }
+
+        .ai-response {
+            background-color: #f9f5fc;
+            border-left: 4px solid var(--ai-color);
+            padding: 15px;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            white-space: pre-wrap; /* Mantiene los saltos de línea de Gemini */
+            display: none;
         }
 
         /* Botón de Google */
@@ -240,6 +279,7 @@
 </head>
 <body>
 
+<!-- Pantalla de Login -->
 <div class="login-card" id="login-container">
     <h2>💸 Gastos Compartidos</h2>
     <p>Iniciá sesión con tu cuenta de Google autorizada para acceder al control de gastos.</p>
@@ -249,12 +289,17 @@
     </button>
 </div>
 
+<!-- Aplicación Principal -->
 <div class="container" id="app-container">
     <div class="user-header">
         <span id="user-display">Cargando usuario...</span>
-        <button class="logout-btn" id="btn-logout">Salir</button>
+        <div class="right-header">
+            <button class="settings-btn" id="btn-settings" title="Configurar API Key">⚙️</button>
+            <button class="logout-btn" id="btn-logout">Salir</button>
+        </div>
     </div>
 
+    <!-- Balance General y Filtro de Período -->
     <div class="balance-card">
         <div class="period-selector">
             <select id="filter-month">
@@ -272,7 +317,8 @@
                 <option value="12">Diciembre</option>
             </select>
             <select id="filter-year">
-                </select>
+                <!-- Se llenará dinámicamente -->
+            </select>
         </div>
         
         <h3>Balance del Período</h3>
@@ -283,6 +329,15 @@
         </div>
     </div>
 
+    <!-- Módulo de Inteligencia Artificial (Gemini) -->
+    <div class="ai-card">
+        <h2>💡 Consultor de Ahorro IA</h2>
+        <p style="font-size: 0.85rem; color: #7f8c8d; margin-top:-10px;">Analiza los últimos 2 meses para ver diferencias y armar un plan.</p>
+        <button class="btn-ai" id="btn-ai-analyze">Analizar Gastos con Gemini</button>
+        <div class="ai-response" id="ai-response-box">Aquí aparecerá el análisis...</div>
+    </div>
+
+    <!-- Formulario de Registro -->
     <div class="form-card">
         <h2>Añadir Transacción</h2>
         <form id="tx-form">
@@ -321,13 +376,16 @@
         </form>
     </div>
 
+    <!-- Historial -->
     <div class="history-card">
         <h2>Historial de Movimientos</h2>
         <ul id="tx-list" class="list">
-            </ul>
+            <!-- Los items de Firebase se cargarán aquí -->
+        </ul>
     </div>
 </div>
 
+<!-- Firebase SDK Modular -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
@@ -359,6 +417,7 @@
     const appContainer = document.getElementById('app-container');
     const btnLogin = document.getElementById('btn-login');
     const btnLogout = document.getElementById('btn-logout');
+    const btnSettings = document.getElementById('btn-settings');
     const userDisplay = document.getElementById('user-display');
     
     const form = document.getElementById('tx-form');
@@ -376,18 +435,20 @@
     const incomeEl = document.getElementById('total-income');
     const expensesEl = document.getElementById('total-expenses');
 
-    let unsubscribeSnapshot = null;
-    let todasLasTransacciones = []; // Guardaremos localmente para filtrar dinámicamente
+    const btnAi = document.getElementById('btn-ai-analyze');
+    const aiResponseBox = document.getElementById('ai-response-box');
 
-    // Configurar selectores de fechas iniciales (Hoy)
+    let unsubscribeSnapshot = null;
+    let todasLasTransacciones = [];
+
+    // Configurar fechas de hoy por defecto
     const hoy = new Date();
     const anioActual = hoy.getFullYear();
     const mesActual = String(hoy.getMonth() + 1).padStart(2, '0');
     
-    // Setear fecha por defecto en el formulario (YYYY-MM-DD)
     dateInput.value = hoy.toISOString().split('T')[0];
 
-    // Cargar selectores de año (año actual, anterior y siguiente)
+    // Cargar selectores de año
     for (let i = anioActual - 2; i <= anioActual + 1; i++) {
         const option = document.createElement('option');
         option.value = i;
@@ -413,17 +474,25 @@
         }
     });
 
-    // Login y Logout
     btnLogin.addEventListener('click', async () => {
         try { await signInWithPopup(auth, provider); } 
         catch (error) { alert("Error al iniciar sesión."); }
     });
     btnLogout.addEventListener('click', () => signOut(auth));
 
-    // Escuchar la Base de Datos (Trae todos los registros ordenados por fecha de gasto)
+    // Botón de engranaje para ingresar/cambiar la API Key localmente
+    btnSettings.addEventListener('click', () => {
+        const guardada = localStorage.getItem('gemini_api_key') || '';
+        const key = prompt("Ingresá tu API Key de Gemini (se guardará de forma local en este navegador):", guardada);
+        if (key !== null) {
+            localStorage.setItem('gemini_api_key', key.trim());
+            alert("API Key guardada localmente de forma exitosa.");
+        }
+    });
+
+    // Escuchar la Base de Datos
     function activarEscuchaRealtime() {
-        // Ordenamos prioritariamente por la fecha elegida por el usuario
-        const q = query(txCollection, orderBy("date", "desc"), orderBy("createdAt", "desc"));
+        const q = query(txCollection, orderBy("date", "desc"));
         
         unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
             todasLasTransacciones = [];
@@ -440,7 +509,7 @@
         });
     }
 
-    // Filtrar y renderizar elementos en base al mes y año elegidos en los selectores
+    // Filtrar y renderizar elementos en base al mes y año elegidos
     function renderizarYFiltrar() {
         const mesElegido = filterMonth.value;
         const anioElegido = filterYear.value;
@@ -450,7 +519,6 @@
         let expenses = 0;
 
         todasLasTransacciones.forEach((tx) => {
-            // Extraer año y mes del campo "date" (Formato YYYY-MM-DD)
             const [anioTx, mesTx, diaTx] = tx.date.split('-');
 
             if (anioTx === anioElegido && mesTx === mesElegido) {
@@ -460,7 +528,6 @@
                 if (tx.type === 'income') income += tx.amount;
                 else expenses += tx.amount;
 
-                // Formatear la fecha para mostrarla más linda (DD/MM)
                 const fechaFormateada = `${diaTx}/${mesTx}`;
 
                 const li = document.createElement('li');
@@ -486,25 +553,21 @@
         balanceEl.style.color = totalBalance >= 0 ? '#2ecc71' : '#e74c3c';
     }
 
-    // Escuchar cambios en los selectores de mes y año de la barra de balance
     filterMonth.addEventListener('change', renderizarYFiltrar);
     filterYear.addEventListener('change', renderizarYFiltrar);
 
     // Guardar transacción
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-
         try {
             await addDoc(txCollection, {
                 description: descriptionInput.value,
                 amount: parseFloat(amountInput.value),
-                date: dateInput.value, // Fecha seleccionada manualmente (o por defecto hoy)
+                date: dateInput.value,
                 type: typeInput.value,
                 user: userInput.value,
-                createdAt: Date.now() // Timestamp de creación del sistema
+                createdAt: Date.now()
             });
-            
-            // Limpiar descripción y monto, pero mantener la fecha por si quieren seguir cargando del mismo día
             descriptionInput.value = '';
             amountInput.value = '';
         } catch (error) {
@@ -518,12 +581,100 @@
         if (e.target.classList.contains('delete-btn')) {
             const id = e.target.getAttribute('data-id');
             if (confirm("¿Seguro que querés borrar este registro?")) {
-                try {
-                    await deleteDoc(doc(db, "transacciones", id));
-                } catch (error) {
-                    console.error(error);
-                }
+                try { await deleteDoc(doc(db, "transacciones", id)); } 
+                catch (error) { console.error(error); }
             }
+        }
+    });
+
+    // ==========================================
+    // INTEGRACIÓN CON LA API DE GEMINI
+    // ==========================================
+    btnAi.addEventListener('click', async () => {
+        const apiKey = localStorage.getItem('gemini_api_key');
+        if (!apiKey) {
+            alert("Por favor, hacé clic en el engranaje ⚙️ arriba a la derecha e ingresá tu API Key de Gemini primero.");
+            return;
+        }
+
+        btnAi.disabled = true;
+        btnAi.innerText = "Analizando gastos... Espere por favor";
+        aiResponseBox.style.display = 'block';
+        aiResponseBox.innerText = "Recopilando datos de los últimos 2 meses e invocando a la Inteligencia Artificial...";
+
+        try {
+            // 1. Recopilar y filtrar datos de los últimos 2 meses
+            const hoy = new Date();
+            const dosMesesAtras = new Date();
+            dosMesesAtras.setMonth(hoy.getMonth() - 2);
+
+            const registrosFiltrados = todasLasTransacciones.filter(tx => {
+                const fechaTx = new Date(tx.date + 'T00:00:00');
+                return fechaTx >= dosMesesAtras;
+            });
+
+            if (registrosFiltrados.length === 0) {
+                aiResponseBox.innerText = "No se encontraron gastos cargados en los últimos dos meses para analizar.";
+                btnAi.disabled = false;
+                btnAi.innerText = "Analizar Gastos con Gemini";
+                return;
+            }
+
+            // Simplificamos los datos que le mandamos al modelo para no gastar tokens de más
+            const datosParaGemini = registrosFiltrados.map(tx => ({
+                fecha: tx.date,
+                descripcion: tx.description,
+                monto: tx.amount,
+                tipo: tx.type,
+                quien: tx.user
+            }));
+
+            // 2. Armar el Prompt
+            const promptContent = `
+Actúa como un asesor financiero experto, cálido y analítico para una pareja llamada Nico y Ceci. 
+Analiza los siguientes movimientos financieros de los últimos dos meses para ayudarlos a entender en qué se les está yendo más dinero, comparar comportamientos de consumo y diseñar un plan de ahorro amigable de aproximadamente el 10% de sus egresos.
+
+Aquí tienes la lista completa de transacciones:
+${JSON.stringify(datosParaGemini, null, 2)}
+
+Por favor, estructura tu respuesta de la siguiente forma utilizando viñetas y títulos claros:
+1. **Resumen rápido de salud financiera:** Cuánto se ingresó y cuánto se gastó en total.
+2. **Los mayores desvíos de dinero:** Agrupa los gastos similares de forma lógica (ej. comidas, servicios, compras hormiga) y destaca cuáles son las categorías más pesadas.
+3. **Comparativa mensual:** Si hay datos de dos meses, contrasta cuál fue más caro y en qué rubros hubo variaciones.
+4. **Plan de acción y plan de ahorro (10%):** Recomendaciones hiper-concretas y viables para reducir gastos sin perder calidad de vida. Haz referencia a Nico y Ceci en tus consejos si es relevante.
+            `;
+
+            // 3. Llamar a la API de Gemini (modelo gemini-2.5-flash)
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+            
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{ text: promptContent }]
+                    }]
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error("La API de Gemini rechazó la petición. Verifica tu API Key.");
+            }
+
+            const data = await response.json();
+            const textResponse = data.candidates[0].content.parts[0].text;
+
+            // Renderizar la respuesta del modelo en la pantalla
+            aiResponseBox.innerText = textResponse;
+
+        } catch (error) {
+            console.error(error);
+            aiResponseBox.innerText = `Ocurrió un error al consultar a Gemini: ${error.message}\n\nAsegúrate de que la API Key ingresada en el engranaje es correcta y que no tiene espacios adicionales.`;
+        } finally {
+            btnAi.disabled = false;
+            btnAi.innerText = "Analizar Gastos con Gemini";
         }
     });
 </script>
