@@ -582,7 +582,7 @@
     });
 
     // =========================================================
-    // CONSULTA DIRECTA MEDIANTE FETCH PARA EVITAR TRABAS DE SDK
+    // CONSULTA DIRECTA MEDIANTE FETCH (API v1 ESTABLE)
     // =========================================================
     btnAi.addEventListener('click', async () => {
         const apiKey = localStorage.getItem('gemini_api_key');
@@ -635,12 +635,11 @@ Por favor, estructura tu respuesta de la siguiente forma utilizando viñetas y t
 1. **Resumen rápido de salud financiera:** Cuánto se ingresó y cuánto se gastó en total.
 2. **Los mayores desvíos de dinero:** Agrupa los gastos similares de forma lógica (ej. comidas, servicios, compras hormiga) y destaca cuáles son las categorías más pesadas.
 3. **Comparativa mensual:** Si hay datos de dos meses, contrasta cuál fue más caro y en qué rubros hubo variaciones.
-4. **Plan de acción y plan de ahorro (10%):** Recomendaciones hiper-concretas y viables para reducir gastos sin perder calidad de vida. Haz referencia a Nico y Ceci en tus consejos si es relevante.
+4. **Plan de acción y plan de ahorro (10%):** Recomendaciones hiper-concreta y viables para reducir gastos sin perder calidad de vida. Haz referencia a Nico y Ceci en tus consejos si es relevante.
             `;
 
-            // Configurar llamada HTTP nativa
-            // Usamos la API v1beta que es compatible con llamadas POST directas y tiene el modelo gemini-1.5-flash estable.
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            // Endpoint oficial en la API v1 (estable) de Google AI para el modelo gemini-1.5-flash
+            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
             const response = await fetch(url, {
                 method: "POST",
