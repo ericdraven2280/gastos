@@ -15,6 +15,10 @@
             --ai-color: #8e44ad;
         }
 
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color);
@@ -198,7 +202,7 @@
             border-radius: 4px;
             font-size: 0.95rem;
             line-height: 1.5;
-            white-space: pre-wrap; /* Mantiene los saltos de línea de Gemini */
+            white-space: pre-wrap;
             display: none;
         }
 
@@ -279,7 +283,6 @@
 </head>
 <body>
 
-<!-- Pantalla de Login -->
 <div class="login-card" id="login-container">
     <h2>💸 Gastos Compartidos</h2>
     <p>Iniciá sesión con tu cuenta de Google autorizada para acceder al control de gastos.</p>
@@ -289,7 +292,6 @@
     </button>
 </div>
 
-<!-- Aplicación Principal -->
 <div class="container" id="app-container">
     <div class="user-header">
         <span id="user-display">Cargando usuario...</span>
@@ -299,7 +301,6 @@
         </div>
     </div>
 
-    <!-- Balance General y Filtro de Período -->
     <div class="balance-card">
         <div class="period-selector">
             <select id="filter-month">
@@ -317,8 +318,7 @@
                 <option value="12">Diciembre</option>
             </select>
             <select id="filter-year">
-                <!-- Se llenará dinámicamente -->
-            </select>
+                </select>
         </div>
         
         <h3>Balance del Período</h3>
@@ -329,7 +329,6 @@
         </div>
     </div>
 
-    <!-- Módulo de Inteligencia Artificial (Gemini) -->
     <div class="ai-card">
         <h2>💡 Consultor de Ahorro IA</h2>
         <p style="font-size: 0.85rem; color: #7f8c8d; margin-top:-10px;">Analiza los últimos 2 meses para ver diferencias y armar un plan.</p>
@@ -337,7 +336,6 @@
         <div class="ai-response" id="ai-response-box">Aquí aparecerá el análisis...</div>
     </div>
 
-    <!-- Formulario de Registro -->
     <div class="form-card">
         <h2>Añadir Transacción</h2>
         <form id="tx-form">
@@ -376,16 +374,13 @@
         </form>
     </div>
 
-    <!-- Historial -->
     <div class="history-card">
         <h2>Historial de Movimientos</h2>
         <ul id="tx-list" class="list">
-            <!-- Los items de Firebase se cargarán aquí -->
-        </ul>
+            </ul>
     </div>
 </div>
 
-<!-- Firebase SDK Modular -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
@@ -395,15 +390,17 @@
         getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // ⚠️ REEMPLAZÁ TODO ESTE OBJETO CON LAS CREDENCIALES DE TU CONSOLA DE FIREBASE
-   const firebaseConfig = {
-  apiKey: "AIzaSyA0g6LsMmYZPgsPnSgNxjOSkkJmR7JTCJI",
-  authDomain: "control-de-gastos-db169.firebaseapp.com",
-  projectId: "control-de-gastos-db169",
-  storageBucket: "control-de-gastos-db169.firebasestorage.app",
-  messagingSenderId: "619984664390",
-  appId: "1:619984664390:web:a90f4dcb91a1c5d06cd747"
-};
+    // Importar el SDK oficial de Google Gen AI preparado para navegadores
+    import { GoogleGenAI } from "https://esm.run/@google/genai";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyA0g6LsMmYZPgsPnSgNxjOSkkJmR7JTCJI",
+        authDomain: "control-de-gastos-db169.firebaseapp.com",
+        projectId: "control-de-gastos-db169",
+        storageBucket: "control-de-gastos-db169.firebasestorage.app",
+        messagingSenderId: "619984664390",
+        appId: "1:619984664390:web:a90f4dcb91a1c5d06cd747"
+    };
 
     // Inicializar Firebase
     const app = initializeApp(firebaseConfig);
@@ -587,9 +584,9 @@
         }
     });
 
-    // ==========================================
-    // INTEGRACIÓN CON LA API DE GEMINI
-    // ==========================================
+    // =========================================================
+    // INTEGRACIÓN CON LA API DE GEMINI USANDO EL SDK DE GOOGLE
+    // =========================================================
     btnAi.addEventListener('click', async () => {
         const apiKey = localStorage.getItem('gemini_api_key');
         if (!apiKey) {
@@ -603,7 +600,7 @@
         aiResponseBox.innerText = "Recopilando datos de los últimos 2 meses e invocando a la Inteligencia Artificial...";
 
         try {
-            // 1. Recopilar y filtrar datos de los últimos 2 meses
+            // Recopilar y filtrar datos de los últimos 2 meses
             const hoy = new Date();
             const dosMesesAtras = new Date();
             dosMesesAtras.setMonth(hoy.getMonth() - 2);
@@ -620,7 +617,7 @@
                 return;
             }
 
-            // Simplificamos los datos que le mandamos al modelo para no gastar tokens de más
+            // Simplificar el payload
             const datosParaGemini = registrosFiltrados.map(tx => ({
                 fecha: tx.date,
                 descripcion: tx.description,
@@ -629,7 +626,7 @@
                 quien: tx.user
             }));
 
-            // 2. Armar el Prompt
+            // Armar el prompt
             const promptContent = `
 Actúa como un asesor financiero experto, cálido y analítico para una pareja llamada Nico y Ceci. 
 Analiza los siguientes movimientos financieros de los últimos dos meses para ayudarlos a entender en qué se les está yendo más dinero, comparar comportamientos de consumo y diseñar un plan de ahorro amigable de aproximadamente el 10% de sus egresos.
@@ -644,34 +641,25 @@ Por favor, estructura tu respuesta de la siguiente forma utilizando viñetas y t
 4. **Plan de acción y plan de ahorro (10%):** Recomendaciones hiper-concretas y viables para reducir gastos sin perder calidad de vida. Haz referencia a Nico y Ceci en tus consejos si es relevante.
             `;
 
-            // 3. Llamar a la API de Gemini (modelo gemini-2.5-flash)
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-            
-            const response = await fetch(url, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{ text: promptContent }]
-                    }]
-                })
+            // Inicializar el SDK de Google Gen AI con la clave
+            const ai = new GoogleGenAI({ apiKey: apiKey });
+
+            // Llamar al modelo gemini-2.5-flash mediante el SDK
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: promptContent,
             });
 
-            if (!response.ok) {
-                throw new Error("La API de Gemini rechazó la petición. Verifica tu API Key.");
+            // Mostrar el resultado
+            if (response && response.text) {
+                aiResponseBox.innerText = response.text;
+            } else {
+                throw new Error("No se pudo obtener texto en la respuesta de Gemini.");
             }
-
-            const data = await response.json();
-            const textResponse = data.candidates[0].content.parts[0].text;
-
-            // Renderizar la respuesta del modelo en la pantalla
-            aiResponseBox.innerText = textResponse;
 
         } catch (error) {
             console.error(error);
-            aiResponseBox.innerText = `Ocurrió un error al consultar a Gemini: ${error.message}\n\nAsegúrate de que la API Key ingresada en el engranaje es correcta y que no tiene espacios adicionales.`;
+            aiResponseBox.innerText = `Ocurrió un error al consultar a Gemini: ${error.message}\n\nAsegúrate de que la API Key ingresada en el engranaje es correcta.`;
         } finally {
             btnAi.disabled = false;
             btnAi.innerText = "Analizar Gastos con Gemini";
