@@ -43,9 +43,10 @@
             width: 100%;
         }
 
-        h1, h2 {
+        h1, h2, h3 {
             text-align: center;
             color: #2c3e50;
+            margin-top: 0;
         }
 
         .balance-card {
@@ -74,6 +75,24 @@
             cursor: pointer;
             font-weight: bold;
             padding: 5px 10px;
+        }
+
+        /* Selector de Período */
+        .period-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .period-selector select {
+            width: auto;
+            padding: 8px 15px;
+            font-weight: bold;
+            border-radius: 20px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+            cursor: pointer;
         }
 
         .balance-num {
@@ -174,7 +193,7 @@
         .list {
             list-style-type: none;
             padding: 0;
-            max-height: 300px;
+            max-height: 350px;
             overflow-y: auto;
         }
 
@@ -197,6 +216,12 @@
             color: #7f8c8d;
             text-transform: uppercase;
             font-weight: bold;
+            margin-top: 2px;
+        }
+
+        .list-item .date-span {
+            font-size: 0.75rem;
+            color: #95a5a6;
         }
 
         .amt-inc { color: var(--income); font-weight: bold; }
@@ -215,7 +240,6 @@
 </head>
 <body>
 
-<!-- Pantalla de Login -->
 <div class="login-card" id="login-container">
     <h2>💸 Gastos Compartidos</h2>
     <p>Iniciá sesión con tu cuenta de Google autorizada para acceder al control de gastos.</p>
@@ -225,16 +249,33 @@
     </button>
 </div>
 
-<!-- Aplicación Principal (Oculta al inicio) -->
 <div class="container" id="app-container">
     <div class="user-header">
         <span id="user-display">Cargando usuario...</span>
         <button class="logout-btn" id="btn-logout">Salir</button>
     </div>
 
-    <!-- Balance General -->
     <div class="balance-card">
-        <h3>Balance Total</h3>
+        <div class="period-selector">
+            <select id="filter-month">
+                <option value="01">Enero</option>
+                <option value="02">Febrero</option>
+                <option value="03">Marzo</option>
+                <option value="04">Abril</option>
+                <option value="05">Mayo</option>
+                <option value="06">Junio</option>
+                <option value="07">Julio</option>
+                <option value="08">Agosto</option>
+                <option value="09">Septiembre</option>
+                <option value="10">Octubre</option>
+                <option value="11">Noviembre</option>
+                <option value="12">Diciembre</option>
+            </select>
+            <select id="filter-year">
+                </select>
+        </div>
+        
+        <h3>Balance del Período</h3>
         <div class="balance-num" id="balance">$0.00</div>
         <div class="flex-row">
             <div class="stat inc">Ingresos: <span id="total-income">$0</span></div>
@@ -242,7 +283,6 @@
         </div>
     </div>
 
-    <!-- Formulario de Registro -->
     <div class="form-card">
         <h2>Añadir Transacción</h2>
         <form id="tx-form">
@@ -250,9 +290,15 @@
                 <label for="description">Descripción</label>
                 <input type="text" id="description" placeholder="Ej. Supermercado, Luz..." required>
             </div>
-            <div class="form-group">
-                <label for="amount">Monto ($)</label>
-                <input type="number" id="amount" step="0.01" placeholder="Ej. 1500" required>
+            <div class="flex-row" style="margin-bottom: 15px;">
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                    <label for="amount">Monto ($)</label>
+                    <input type="number" id="amount" step="0.01" placeholder="Ej. 1500" required>
+                </div>
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                    <label for="date">Fecha</label>
+                    <input type="date" id="date" required>
+                </div>
             </div>
             <div class="flex-row">
                 <div class="form-group" style="flex: 1;">
@@ -275,16 +321,13 @@
         </form>
     </div>
 
-    <!-- Historial -->
     <div class="history-card">
         <h2>Historial de Movimientos</h2>
         <ul id="tx-list" class="list">
-            <!-- Los items de Firebase se cargarán aquí -->
-        </ul>
+            </ul>
     </div>
 </div>
 
-<!-- Firebase SDK Modular -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
@@ -294,15 +337,15 @@
         getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // ⚠️ REEMPLAZÁ TODO ESTE OBJETO CON LAS CREDENCIALES QUE COPIASTE DE TU CONSOLA
-    const firebaseConfig = {
+    // ⚠️ REEMPLAZÁ TODO ESTE OBJETO CON LAS CREDENCIALES DE TU CONSOLA DE FIREBASE
+   const firebaseConfig = {
   apiKey: "AIzaSyA0g6LsMmYZPgsPnSgNxjOSkkJmR7JTCJI",
   authDomain: "control-de-gastos-db169.firebaseapp.com",
   projectId: "control-de-gastos-db169",
   storageBucket: "control-de-gastos-db169.firebasestorage.app",
   messagingSenderId: "619984664390",
   appId: "1:619984664390:web:a90f4dcb91a1c5d06cd747"
-    };
+};
 
     // Inicializar Firebase
     const app = initializeApp(firebaseConfig);
@@ -321,97 +364,131 @@
     const form = document.getElementById('tx-form');
     const descriptionInput = document.getElementById('description');
     const amountInput = document.getElementById('amount');
+    const dateInput = document.getElementById('date');
     const typeInput = document.getElementById('type');
     const userInput = document.getElementById('user');
+    
+    const filterMonth = document.getElementById('filter-month');
+    const filterYear = document.getElementById('filter-year');
+    
     const txList = document.getElementById('tx-list');
     const balanceEl = document.getElementById('balance');
     const incomeEl = document.getElementById('total-income');
     const expensesEl = document.getElementById('total-expenses');
 
     let unsubscribeSnapshot = null;
+    let todasLasTransacciones = []; // Guardaremos localmente para filtrar dinámicamente
+
+    // Configurar selectores de fechas iniciales (Hoy)
+    const hoy = new Date();
+    const anioActual = hoy.getFullYear();
+    const mesActual = String(hoy.getMonth() + 1).padStart(2, '0');
+    
+    // Setear fecha por defecto en el formulario (YYYY-MM-DD)
+    dateInput.value = hoy.toISOString().split('T')[0];
+
+    // Cargar selectores de año (año actual, anterior y siguiente)
+    for (let i = anioActual - 2; i <= anioActual + 1; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.innerText = i;
+        if (i === anioActual) option.selected = true;
+        filterYear.appendChild(option);
+    }
+    filterMonth.value = mesActual;
 
     // Control de Estado de Autenticación
     onAuthStateChanged(auth, (user) => {
         if (user) {
-            // Usuario Autenticado
             userDisplay.innerText = `Sesión: ${user.displayName}`;
             loginContainer.style.display = 'none';
             appContainer.style.display = 'block';
             document.body.style.alignItems = 'flex-start';
-            
-            // Activar escucha en tiempo real de Firestore
             activarEscuchaRealtime();
         } else {
-            // Usuario Deslogueado
             loginContainer.style.display = 'block';
             appContainer.style.display = 'none';
             document.body.style.alignItems = 'center';
-            
-            if (unsubscribeSnapshot) {
-                unsubscribeSnapshot(); // Apagar escucha
-            }
+            if (unsubscribeSnapshot) unsubscribeSnapshot();
         }
     });
 
-    // Iniciar Sesión con PopUp de Google
+    // Login y Logout
     btnLogin.addEventListener('click', async () => {
-        try {
-            await signInWithPopup(auth, provider);
-        } catch (error) {
-            console.error("Error en login:", error);
-            alert("No se pudo iniciar sesión. Asegúrate de usar una cuenta autorizada.");
-        }
+        try { await signInWithPopup(auth, provider); } 
+        catch (error) { alert("Error al iniciar sesión."); }
     });
+    btnLogout.addEventListener('click', () => signOut(auth));
 
-    // Cerrar Sesión
-    btnLogout.addEventListener('click', () => {
-        signOut(auth);
-    });
-
-    // Escuchar la Base de Datos
+    // Escuchar la Base de Datos (Trae todos los registros ordenados por fecha de gasto)
     function activarEscuchaRealtime() {
-        const q = query(txCollection, orderBy("createdAt", "desc"));
+        // Ordenamos prioritariamente por la fecha elegida por el usuario
+        const q = query(txCollection, orderBy("date", "desc"), orderBy("createdAt", "desc"));
         
         unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
-            txList.innerHTML = '';
-            let income = 0;
-            let expenses = 0;
-
+            todasLasTransacciones = [];
             snapshot.forEach((docSnap) => {
-                const tx = docSnap.data();
-                const id = docSnap.id;
-                
+                todasLasTransacciones.push({
+                    id: docSnap.id,
+                    ...docSnap.data()
+                });
+            });
+            renderizarYFiltrar();
+        }, (error) => {
+            console.error(error);
+            txList.innerHTML = '<li style="color:red; text-align:center;">Error de permisos en Firestore.</li>';
+        });
+    }
+
+    // Filtrar y renderizar elementos en base al mes y año elegidos en los selectores
+    function renderizarYFiltrar() {
+        const mesElegido = filterMonth.value;
+        const anioElegido = filterYear.value;
+
+        txList.innerHTML = '';
+        let income = 0;
+        let expenses = 0;
+
+        todasLasTransacciones.forEach((tx) => {
+            // Extraer año y mes del campo "date" (Formato YYYY-MM-DD)
+            const [anioTx, mesTx, diaTx] = tx.date.split('-');
+
+            if (anioTx === anioElegido && mesTx === mesElegido) {
                 const sign = tx.type === 'income' ? '+' : '-';
                 const itemClass = tx.type === 'income' ? 'amt-inc' : 'amt-exp';
                 
                 if (tx.type === 'income') income += tx.amount;
                 else expenses += tx.amount;
 
+                // Formatear la fecha para mostrarla más linda (DD/MM)
+                const fechaFormateada = `${diaTx}/${mesTx}`;
+
                 const li = document.createElement('li');
                 li.classList.add('list-item');
                 li.innerHTML = `
                     <div class="details">
-                        <span>${tx.description}</span>
+                        <span>${tx.description} <span class="date-span">(${fechaFormateada})</span></span>
                         <span class="responsible">Por: ${tx.user}</span>
                     </div>
                     <div>
                         <span class="${itemClass}">${sign}$${tx.amount.toFixed(2)}</span>
-                        <button class="delete-btn" data-id="${id}">×</button>
+                        <button class="delete-btn" data-id="${tx.id}">×</button>
                     </div>
                 `;
                 txList.appendChild(li);
-            });
-
-            const totalBalance = income - expenses;
-            balanceEl.innerText = `$${totalBalance.toFixed(2)}`;
-            incomeEl.innerText = `$${income.toFixed(2)}`;
-            expensesEl.innerText = `$${expenses.toFixed(2)}`;
-            balanceEl.style.color = totalBalance >= 0 ? '#2ecc71' : '#e74c3c';
-        }, (error) => {
-            console.error("Error de permisos en Firestore:", error);
-            txList.innerHTML = '<li style="color:red; text-align:center;">Acceso Denegado: Tu cuenta no está autorizada en las reglas de seguridad.</li>';
+            }
         });
+
+        const totalBalance = income - expenses;
+        balanceEl.innerText = `$${totalBalance.toFixed(2)}`;
+        incomeEl.innerText = `$${income.toFixed(2)}`;
+        expensesEl.innerText = `$${expenses.toFixed(2)}`;
+        balanceEl.style.color = totalBalance >= 0 ? '#2ecc71' : '#e74c3c';
     }
+
+    // Escuchar cambios en los selectores de mes y año de la barra de balance
+    filterMonth.addEventListener('change', renderizarYFiltrar);
+    filterYear.addEventListener('change', renderizarYFiltrar);
 
     // Guardar transacción
     form.addEventListener('submit', async (e) => {
@@ -421,14 +498,18 @@
             await addDoc(txCollection, {
                 description: descriptionInput.value,
                 amount: parseFloat(amountInput.value),
+                date: dateInput.value, // Fecha seleccionada manualmente (o por defecto hoy)
                 type: typeInput.value,
                 user: userInput.value,
-                createdAt: Date.now()
+                createdAt: Date.now() // Timestamp de creación del sistema
             });
-            form.reset();
+            
+            // Limpiar descripción y monto, pero mantener la fecha por si quieren seguir cargando del mismo día
+            descriptionInput.value = '';
+            amountInput.value = '';
         } catch (error) {
-            console.error("Error al guardar:", error);
-            alert("No tienes permisos de escritura o expiró tu sesión.");
+            console.error(error);
+            alert("No se pudo guardar el registro.");
         }
     });
 
@@ -440,7 +521,7 @@
                 try {
                     await deleteDoc(doc(db, "transacciones", id));
                 } catch (error) {
-                    console.error("Error al borrar:", error);
+                    console.error(error);
                 }
             }
         }
