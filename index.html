@@ -22,11 +22,25 @@
             padding: 20px;
             display: flex;
             justify-content: center;
+            align-items: center;
+            min-height: 90vh;
         }
 
         .container {
             width: 100%;
             max-width: 600px;
+            display: none; /* Se muestra solo al iniciar sesión */
+        }
+
+        /* Pantalla de Login */
+        .login-card {
+            background: var(--card-bg);
+            padding: 40px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
         }
 
         h1, h2 {
@@ -41,6 +55,25 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             text-align: center;
             margin-bottom: 20px;
+            position: relative;
+        }
+
+        .user-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+
+        .logout-btn {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 5px 10px;
         }
 
         .balance-num {
@@ -61,6 +94,7 @@
             border-radius: 8px;
             color: white;
             font-weight: bold;
+            text-align: center;
         }
 
         .stat.inc { background-color: var(--income); }
@@ -93,7 +127,7 @@
             font-size: 1rem;
         }
 
-        button {
+        .btn-primary {
             width: 100%;
             padding: 12px;
             background-color: var(--primary);
@@ -106,9 +140,29 @@
             transition: background 0.2s;
         }
 
-        button:hover {
+        .btn-primary:hover {
             background-color: #357abd;
         }
+
+        /* Botón de Google */
+        .google-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fff;
+            color: #757575;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: background-color 0.2s;
+            margin-top: 20px;
+        }
+        .google-btn:hover { background-color: #fafafa; }
+        .google-btn img { width: 20px; margin-right: 10px; }
 
         .history-card {
             background: var(--card-bg);
@@ -161,9 +215,24 @@
 </head>
 <body>
 
-<div class="container">
-    <h1>💸 Gastos Compartidos Nico y Ceci</h1>
+<!-- Pantalla de Login -->
+<div class="login-card" id="login-container">
+    <h2>💸 Gastos Compartidos</h2>
+    <p>Iniciá sesión con tu cuenta de Google autorizada para acceder al control de gastos.</p>
+    <button class="google-btn" id="btn-login">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google">
+        Acceder con Google
+    </button>
+</div>
 
+<!-- Aplicación Principal (Oculta al inicio) -->
+<div class="container" id="app-container">
+    <div class="user-header">
+        <span id="user-display">Cargando usuario...</span>
+        <button class="logout-btn" id="btn-logout">Salir</button>
+    </div>
+
+    <!-- Balance General -->
     <div class="balance-card">
         <h3>Balance Total</h3>
         <div class="balance-num" id="balance">$0.00</div>
@@ -173,12 +242,13 @@
         </div>
     </div>
 
+    <!-- Formulario de Registro -->
     <div class="form-card">
         <h2>Añadir Transacción</h2>
         <form id="tx-form">
             <div class="form-group">
                 <label for="description">Descripción</label>
-                <input type="text" id="description" placeholder="Ej. Supermercado, Luz, Sueldo..." required>
+                <input type="text" id="description" placeholder="Ej. Supermercado, Luz..." required>
             </div>
             <div class="form-group">
                 <label for="amount">Monto ($)</label>
@@ -195,24 +265,59 @@
                 <div class="form-group" style="flex: 1;">
                     <label for="user">¿Quién?</label>
                     <select id="user">
-                        <option value="Él">Nico</option>
-                        <option value="Ella">Ceci</option>
+                        <option value="Él">Él</option>
+                        <option value="Ella">Ella</option>
                         <option value="Ambos">Ambos</option>
                     </select>
                 </div>
             </div>
-            <button type="submit">Guardar Registro</button>
+            <button class="btn-primary" type="submit">Guardar Registro</button>
         </form>
     </div>
 
+    <!-- Historial -->
     <div class="history-card">
         <h2>Historial de Movimientos</h2>
         <ul id="tx-list" class="list">
-            </ul>
+            <!-- Los items de Firebase se cargarán aquí -->
+        </ul>
     </div>
 </div>
 
-<script>
+<!-- Firebase SDK Modular -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+        getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { 
+        getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // ⚠️ REEMPLAZÁ TODO ESTE OBJETO CON LAS CREDENCIALES QUE COPIASTE DE TU CONSOLA
+    const firebaseConfig = {
+  apiKey: "AIzaSyA0g6LsMmYZPgsPnSgNxjOSkkJmR7JTCJI",
+  authDomain: "control-de-gastos-db169.firebaseapp.com",
+  projectId: "control-de-gastos-db169",
+  storageBucket: "control-de-gastos-db169.firebasestorage.app",
+  messagingSenderId: "619984664390",
+  appId: "1:619984664390:web:a90f4dcb91a1c5d06cd747"
+    };
+
+    // Inicializar Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+    const txCollection = collection(db, "transacciones");
+
+    // Elementos del DOM
+    const loginContainer = document.getElementById('login-container');
+    const appContainer = document.getElementById('app-container');
+    const btnLogin = document.getElementById('btn-login');
+    const btnLogout = document.getElementById('btn-logout');
+    const userDisplay = document.getElementById('user-display');
+    
     const form = document.getElementById('tx-form');
     const descriptionInput = document.getElementById('description');
     const amountInput = document.getElementById('amount');
@@ -223,75 +328,123 @@
     const incomeEl = document.getElementById('total-income');
     const expensesEl = document.getElementById('total-expenses');
 
-    // Cargar datos desde LocalStorage
-    let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+    let unsubscribeSnapshot = null;
 
-    function updateDOM() {
-        txList.innerHTML = '';
-        
-        let income = 0;
-        let expenses = 0;
-
-        // Renderizar lista al revés para ver lo más reciente arriba
-        transactions.slice().reverse().forEach(tx => {
-            const sign = tx.type === 'income' ? '+' : '-';
-            const itemClass = tx.type === 'income' ? 'amt-inc' : 'amt-exp';
+    // Control de Estado de Autenticación
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            // Usuario Autenticado
+            userDisplay.innerText = `Sesión: ${user.displayName}`;
+            loginContainer.style.display = 'none';
+            appContainer.style.display = 'block';
+            document.body.style.alignItems = 'flex-start';
             
-            if (tx.type === 'income') income += tx.amount;
-            else expenses += tx.amount;
+            // Activar escucha en tiempo real de Firestore
+            activarEscuchaRealtime();
+        } else {
+            // Usuario Deslogueado
+            loginContainer.style.display = 'block';
+            appContainer.style.display = 'none';
+            document.body.style.alignItems = 'center';
+            
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot(); // Apagar escucha
+            }
+        }
+    });
 
-            const li = document.createElement('li');
-            li.classList.add('list-item');
-            li.innerHTML = `
-                <div class="details">
-                    <span>${tx.description}</span>
-                    <span class="responsible">Por: ${tx.user}</span>
-                </div>
-                <div>
-                    <span class="${itemClass}">${sign}$${tx.amount.toFixed(2)}</span>
-                    <button class="delete-btn" onclick="deleteTransaction(${tx.id})">×</button>
-                </div>
-            `;
-            txList.appendChild(li);
-        });
+    // Iniciar Sesión con PopUp de Google
+    btnLogin.addEventListener('click', async () => {
+        try {
+            await signInWithPopup(auth, provider);
+        } catch (error) {
+            console.error("Error en login:", error);
+            alert("No se pudo iniciar sesión. Asegúrate de usar una cuenta autorizada.");
+        }
+    });
 
-        const totalBalance = income - expenses;
-        balanceEl.innerText = `$${totalBalance.toFixed(2)}`;
-        incomeEl.innerText = `$${income.toFixed(2)}`;
-        expensesEl.innerText = `$${expenses.toFixed(2)}`;
+    // Cerrar Sesión
+    btnLogout.addEventListener('click', () => {
+        signOut(auth);
+    });
+
+    // Escuchar la Base de Datos
+    function activarEscuchaRealtime() {
+        const q = query(txCollection, orderBy("createdAt", "desc"));
         
-        // Color del balance general
-        balanceEl.style.color = totalBalance >= 0 ? '#2ecc71' : '#e74c3c';
+        unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+            txList.innerHTML = '';
+            let income = 0;
+            let expenses = 0;
+
+            snapshot.forEach((docSnap) => {
+                const tx = docSnap.data();
+                const id = docSnap.id;
+                
+                const sign = tx.type === 'income' ? '+' : '-';
+                const itemClass = tx.type === 'income' ? 'amt-inc' : 'amt-exp';
+                
+                if (tx.type === 'income') income += tx.amount;
+                else expenses += tx.amount;
+
+                const li = document.createElement('li');
+                li.classList.add('list-item');
+                li.innerHTML = `
+                    <div class="details">
+                        <span>${tx.description}</span>
+                        <span class="responsible">Por: ${tx.user}</span>
+                    </div>
+                    <div>
+                        <span class="${itemClass}">${sign}$${tx.amount.toFixed(2)}</span>
+                        <button class="delete-btn" data-id="${id}">×</button>
+                    </div>
+                `;
+                txList.appendChild(li);
+            });
+
+            const totalBalance = income - expenses;
+            balanceEl.innerText = `$${totalBalance.toFixed(2)}`;
+            incomeEl.innerText = `$${income.toFixed(2)}`;
+            expensesEl.innerText = `$${expenses.toFixed(2)}`;
+            balanceEl.style.color = totalBalance >= 0 ? '#2ecc71' : '#e74c3c';
+        }, (error) => {
+            console.error("Error de permisos en Firestore:", error);
+            txList.innerHTML = '<li style="color:red; text-align:center;">Acceso Denegado: Tu cuenta no está autorizada en las reglas de seguridad.</li>';
+        });
     }
 
-    function addTransaction(e) {
+    // Guardar transacción
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const transaction = {
-            id: Date.now(),
-            description: descriptionInput.value,
-            amount: parseFloat(amountInput.value),
-            type: typeInput.value,
-            user: userInput.value
-        };
+        try {
+            await addDoc(txCollection, {
+                description: descriptionInput.value,
+                amount: parseFloat(amountInput.value),
+                type: typeInput.value,
+                user: userInput.value,
+                createdAt: Date.now()
+            });
+            form.reset();
+        } catch (error) {
+            console.error("Error al guardar:", error);
+            alert("No tienes permisos de escritura o expiró tu sesión.");
+        }
+    });
 
-        transactions.push(transaction);
-        localStorage.setItem('transactions', JSON.stringify(transactions));
-        
-        updateDOM();
-        form.reset();
-    }
-
-    function deleteTransaction(id) {
-        transactions = transactions.filter(tx => tx.id !== id);
-        localStorage.setItem('transactions', JSON.stringify(transactions));
-        updateDOM();
-    }
-
-    form.addEventListener('submit', addTransaction);
-    
-    // Inicializar app
-    updateDOM();
+    // Borrar transacción
+    txList.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('delete-btn')) {
+            const id = e.target.getAttribute('data-id');
+            if (confirm("¿Seguro que querés borrar este registro?")) {
+                try {
+                    await deleteDoc(doc(db, "transacciones", id));
+                } catch (error) {
+                    console.error("Error al borrar:", error);
+                }
+            }
+        }
+    });
 </script>
 
 </body>
