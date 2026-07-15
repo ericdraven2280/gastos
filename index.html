@@ -283,6 +283,7 @@
 </head>
 <body>
 
+<!-- Pantalla de Login -->
 <div class="login-card" id="login-container">
     <h2>💸 Gastos Compartidos</h2>
     <p>Iniciá sesión con tu cuenta de Google autorizada para acceder al control de gastos.</p>
@@ -292,6 +293,7 @@
     </button>
 </div>
 
+<!-- Aplicación Principal -->
 <div class="container" id="app-container">
     <div class="user-header">
         <span id="user-display">Cargando usuario...</span>
@@ -301,6 +303,7 @@
         </div>
     </div>
 
+    <!-- Balance General y Filtro de Período -->
     <div class="balance-card">
         <div class="period-selector">
             <select id="filter-month">
@@ -318,7 +321,8 @@
                 <option value="12">Diciembre</option>
             </select>
             <select id="filter-year">
-                </select>
+                <!-- Se llenará dinámicamente -->
+            </select>
         </div>
         
         <h3>Balance del Período</h3>
@@ -329,6 +333,7 @@
         </div>
     </div>
 
+    <!-- Módulo de Inteligencia Artificial (Gemini) -->
     <div class="ai-card">
         <h2>💡 Consultor de Ahorro IA</h2>
         <p style="font-size: 0.85rem; color: #7f8c8d; margin-top:-10px;">Analiza los últimos 2 meses para ver diferencias y armar un plan.</p>
@@ -336,6 +341,7 @@
         <div class="ai-response" id="ai-response-box">Aquí aparecerá el análisis...</div>
     </div>
 
+    <!-- Formulario de Registro -->
     <div class="form-card">
         <h2>Añadir Transacción</h2>
         <form id="tx-form">
@@ -374,13 +380,16 @@
         </form>
     </div>
 
+    <!-- Historial -->
     <div class="history-card">
         <h2>Historial de Movimientos</h2>
         <ul id="tx-list" class="list">
-            </ul>
+            <!-- Los items de Firebase se cargarán aquí -->
+        </ul>
     </div>
 </div>
 
+<!-- Firebase SDK Modular -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
@@ -582,7 +591,7 @@
     });
 
     // =========================================================
-    // CONSULTA DIRECTA MEDIANTE FETCH (API v1beta ACTUALIZADA)
+    // CONSULTA DIRECTA CON REINTENTOS Y FALLBACK DE MODELOS
     // =========================================================
     btnAi.addEventListener('click', async () => {
         const apiKey = localStorage.getItem('gemini_api_key');
@@ -594,7 +603,7 @@
         btnAi.disabled = true;
         btnAi.innerText = "Analizando gastos... Espere por favor";
         aiResponseBox.style.display = 'block';
-        aiResponseBox.innerText = "Recopilando datos de los últimos 2 meses e invocando al nuevo motor Gemini 3.5...";
+        aiResponseBox.innerText = "Recopilando datos de los últimos 2 meses...";
 
         try {
             // Recopilar y filtrar datos de los últimos 2 meses
@@ -614,7 +623,6 @@
                 return;
             }
 
-            // Simplificar el payload
             const datosParaGemini = registrosFiltrados.map(tx => ({
                 fecha: tx.date,
                 descripcion: tx.description,
@@ -623,7 +631,6 @@
                 quien: tx.user
             }));
 
-            // Armar el prompt
             const promptContent = `
 Actúa como un asesor financiero experto, cálido y analítico para una pareja llamada Nico y Ceci. 
 Analiza los siguientes movimientos financieros de los últimos dos meses para ayudarlos a entender en qué se les está yendo más dinero, comparar comportamientos de consumo y diseñar un plan de ahorro amigable de aproximadamente el 10% de sus egresos.
@@ -635,43 +642,50 @@ Por favor, estructura tu respuesta de la siguiente forma utilizando viñetas y t
 1. **Resumen rápido de salud financiera:** Cuánto se ingresó y cuánto se gastó en total.
 2. **Los mayores desvíos de dinero:** Agrupa los gastos similares de forma lógica (ej. comidas, servicios, compras hormiga) y destaca cuáles son las categorías más pesadas.
 3. **Comparativa mensual:** Si hay datos de dos meses, contrasta cuál fue más caro y en qué rubros hubo variaciones.
-4. **Plan de acción y plan de ahorro (10%):** Recomendaciones hiper-concreta y viables para reducir gastos sin perder calidad de vida. Haz referencia a Nico y Ceci en tus consejos si es relevante.
+4. **Plan de acción y plan de ahorro (10%):** Recomendaciones hiper-concretas y viables para reducir gastos sin perder calidad de vida. Haz referencia a Nico y Ceci en tus consejos si es relevante.
             `;
 
-            // Endpoint oficial v1beta con el nuevo modelo estándar gemini-3.5-flash
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
+            // Lista de modelos a intentar en orden de preferencia
+            const modelosAIntentar = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-1.5-pro'];
+            let respuestaExitosa = null;
+            let ultimoError = "";
 
-            const response = await fetch(url, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: promptContent
-                        }]
-                    }]
-                })
-            });
+            for (const modelo of modelosAIntentar) {
+                try {
+                    aiResponseBox.innerText = `Invocando modelo ${modelo}...`;
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error ? errorData.error.message : "Error desconocido de red.");
+                    const response = await fetch(url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: promptContent }] }]
+                        })
+                    });
+
+                    if (response.ok) {
+                        respuestaExitosa = await response.json();
+                        break; // Si tiene éxito, salimos del bucle
+                    } else {
+                        const errData = await response.json();
+                        ultimoError = errData.error ? errData.error.message : "Error de red";
+                        console.warn(`Modelo ${modelo} falló con: ${ultimoError}. Probando el siguiente...`);
+                    }
+                } catch (e) {
+                    ultimoError = e.message;
+                    console.warn(`Error de conexión con ${modelo}: ${ultimoError}. Probando el siguiente...`);
+                }
             }
 
-            const data = await response.json();
-            
-            // Extraer el texto de la respuesta estructurada de la API de Google
-            if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
-                aiResponseBox.innerText = data.candidates[0].content.parts[0].text;
+            if (respuestaExitosa && respuestaExitosa.candidates && respuestaExitosa.candidates[0]?.content?.parts[0]) {
+                aiResponseBox.innerText = respuestaExitosa.candidates[0].content.parts[0].text;
             } else {
-                throw new Error("El formato de respuesta de la API no fue el esperado.");
+                throw new Error(`Ningún modelo pudo procesar la solicitud. Último error reportado: ${ultimoError}`);
             }
 
         } catch (error) {
             console.error(error);
-            aiResponseBox.innerText = `Ocurrió un error al consultar a Gemini: ${error.message}\n\nAsegúrate de que la API Key ingresada en el engranaje es correcta y tiene permisos activos.`;
+            aiResponseBox.innerText = `Ocurrió un error al consultar a Gemini: ${error.message}\n\nSi el error es de 'High Demand', por favor espera unos segundos y vuelve a intentar.`;
         } finally {
             btnAi.disabled = false;
             btnAi.innerText = "Analizar Gastos con Gemini";
