@@ -231,6 +231,7 @@
             padding: 20px;
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
         }
 
         .list {
@@ -303,7 +304,7 @@
         </div>
     </div>
 
-    <!-- Balance General y Filtro de Período -->
+    <!-- 1. Balance General y Filtro de Período -->
     <div class="balance-card">
         <div class="period-selector">
             <select id="filter-month">
@@ -333,15 +334,7 @@
         </div>
     </div>
 
-    <!-- Módulo de Inteligencia Artificial (Gemini) -->
-    <div class="ai-card">
-        <h2>💡 Consultor de Ahorro IA</h2>
-        <p style="font-size: 0.85rem; color: #7f8c8d; margin-top:-10px;">Analiza los últimos 2 meses para ver diferencias y armar un plan.</p>
-        <button class="btn-ai" id="btn-ai-analyze">Analizar Gastos con Gemini</button>
-        <div class="ai-response" id="ai-response-box">Aquí aparecerá el análisis...</div>
-    </div>
-
-    <!-- Formulario de Registro -->
+    <!-- 2. Formulario de Registro -->
     <div class="form-card">
         <h2>Añadir Transacción</h2>
         <form id="tx-form">
@@ -380,12 +373,20 @@
         </form>
     </div>
 
-    <!-- Historial -->
+    <!-- 3. Historial de Movimientos -->
     <div class="history-card">
         <h2>Historial de Movimientos</h2>
         <ul id="tx-list" class="list">
             <!-- Los items de Firebase se cargarán aquí -->
         </ul>
+    </div>
+
+    <!-- 4. Módulo de Inteligencia Artificial (Al final para que no desplace nada) -->
+    <div class="ai-card">
+        <h2>💡 Consultor de Ahorro IA</h2>
+        <p style="font-size: 0.85rem; color: #7f8c8d; margin-top:-10px;">Analiza los últimos 2 meses para ver diferencias y armar un plan.</p>
+        <button class="btn-ai" id="btn-ai-analyze">Analizar Gastos con Gemini</button>
+        <div class="ai-response" id="ai-response-box">Aquí aparecerá el análisis...</div>
     </div>
 </div>
 
@@ -642,7 +643,7 @@ Por favor, estructura tu respuesta de la siguiente forma utilizando viñetas y t
 1. **Resumen rápido de salud financiera:** Cuánto se ingresó y cuánto se gastó en total.
 2. **Los mayores desvíos de dinero:** Agrupa los gastos similares de forma lógica (ej. comidas, servicios, compras hormiga) y destaca cuáles son las categorías más pesadas.
 3. **Comparativa mensual:** Si hay datos de dos meses, contrasta cuál fue más caro y en qué rubros hubo variaciones.
-4. **Plan de acción y plan de ahorro (10%):** Recomendaciones hiper-concreta y viables para reducir gastos sin perder calidad de vida. Haz referencia a Nico y Ceci en tus consejos si es relevante.
+4. **Plan de acción y plan de ahorro (10%):** Recomendaciones hiper-concretas y viables para reducir gastos sin perder calidad de vida. Haz referencia a Nico y Ceci en tus consejos si es relevante.
             `;
 
             // Modelos 100% activos y soportados en la API actual
