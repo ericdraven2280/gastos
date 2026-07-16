@@ -865,7 +865,7 @@
         }
     });
 
-    // ==========================================
+   // ==========================================
     // PROCESAMIENTO UNIFICADO (TEXTO LIBRE / MERCADO PAGO)
     // ==========================================
     btnProcessRaw.addEventListener('click', async () => {
@@ -926,7 +926,7 @@
                         let parteEntera = lineas[i + offset] || "";
                         let parteDecimal = "00";
 
-                        // Manejar decimales que puedan venir en líneas siguientes debido al copiado (ej: "," en una línea y "84" en la otra)
+                        // Manejar decimales que puedan venir en líneas siguientes debido al copiado
                         if (i + offset + 1 < lineas.length && lineas[i + offset + 1] === ",") {
                             parteDecimal = lineas[i + offset + 2] || "00";
                             offset += 2;
@@ -934,7 +934,6 @@
                             parteDecimal = lineas[i + offset + 1].replace(",", "").trim();
                             offset++;
                         } else if (i + offset + 1 < lineas.length && /^\d{2}$/.test(lineas[i + offset + 1])) {
-                            // Si son dos dígitos sueltos, asumimos decimales
                             parteDecimal = lineas[i + offset + 1].trim();
                             offset++;
                         }
@@ -949,23 +948,23 @@
                         let candidatos = [];
 
                         while (idxDesc >= 0) {
-                            const lAtras = lineas[idxDesc];
+                            const lAtras = lineas[idxDesc].trim();
 
-                            // Cortamos la búsqueda si nos topamos con otra transacción o fecha vieja
+                            // Cortamos la búsqueda si nos topamos con otra transacción o una fecha nueva
                             if (lAtras === "-" || lAtras === "+" || lAtras.toLowerCase() === "hoy" || lAtras.toLowerCase() === "ayer" || lAtras.match(/^\d+\s+de\s+[a-z]+/i)) {
                                 break;
                             }
 
-                            // Ignorar palabras del diseño de MP, horas y duplicados obvios
-                            if (lAtras !== "Dinero disponible" && 
-                                lAtras !== "Aprobado" && 
-                                lAtras !== "Compra" && 
-                                lAtras !== "Transferencia enviada" &&
-                                lAtras !== "Ingreso de dinero" &&
-                                lAtras !== "Con transferencia" &&
-                                !lAtras.match(/^\d{2}:\d{2}$/)) { // Saltea horas (ej. 10:46)
-                                
-                                // Si ya guardamos este mismo string exacto justo en la línea de abajo, lo salteamos para evitar duplicados del copiado
+                            // Ignorar palabras del diseño de MP, horas sueltas, tarjetas y estados
+                            const esHora = /^\d{1,2}:\d{2}$/.test(lAtras);
+                            const esPalabraBasura = [
+                                "dinero disponible", "aprobado", "compra", "transferencia enviada", 
+                                "ingreso de dinero", "con transferencia", "transferencia recibida", 
+                                "visa crédito", "pago en tienda física", "visa debito", "mastercard"
+                            ].includes(lAtras.toLowerCase());
+
+                            if (!esHora && !esPalabraBasura) {
+                                // Evitamos duplicar candidatos consecutivos (como "Mecubro" / "Mecubro")
                                 if (candidatos.length === 0 || candidatos[candidatos.length - 1] !== lAtras) {
                                     candidatos.push(lAtras);
                                 }
@@ -973,9 +972,9 @@
                             idxDesc--;
                         }
 
-                        // Tomamos el candidato más válido (el de más arriba en el bloque es el nombre del comercio/persona)
+                        // Tomamos el candidato más antiguo del bloque (el de más arriba, que es el nombre)
                         if (candidatos.length > 0) {
-                            descripcionEncontrada = candidatos[candidatos.length - 1]; // El primero detectado en reversa profunda
+                            descripcionEncontrada = candidatos[candidatos.length - 1];
                         }
 
                         if (!descripcionEncontrada) {
@@ -986,6 +985,7 @@
                         descripcionEncontrada = descripcionEncontrada
                             .replace(/pagaste a/gi, '')
                             .replace(/transferencia enviada a/gi, '')
+                            .replace(/transferencia recibida de/gi, '')
                             .trim();
 
                         // Formatear lindo (Primera letra Mayúscula)
