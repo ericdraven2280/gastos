@@ -876,24 +876,20 @@
         }
 
         if (modeSwitch.checked) {
-            // --- MODO MERCADO PAGO OPTIMIZADO ---
+            // --- MODO MERCADO PAGO OPTIMIZADO PARA COPIADO DE WEB ---
             const lineas = textoOriginal.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             
             let transaccionesDetectadas = [];
             let i = 0;
 
-            // Variables de control para armar una transacción por lote
+            // Variables de fecha por defecto
             let fechaActualStr = hoy.toISOString().split('T')[0];
-            let descripcion = "";
-            let tipo = "expense";
-            let monto = null;
-
             const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
             while (i < lineas.length) {
                 const linea = lineas[i];
 
-                // 1. Detectar Cambios de Fecha en el lote copiado
+                // 1. Detectar Cambios de Fecha en el lote
                 if (linea.toLowerCase() === "hoy") {
                     fechaActualStr = hoy.toISOString().split('T')[0];
                     i++;
@@ -905,7 +901,6 @@
                     i++;
                     continue;
                 } else {
-                    // Match fechas tipo "15 de julio"
                     const matchFecha = linea.match(/^(\d+)\s+de\s+([a-z]+)/i);
                     if (matchFecha) {
                         const dia = parseInt(matchFecha[1]);
@@ -923,62 +918,84 @@
 
                 // 2. Si detectamos un signo de operación solo ("-" o "+")
                 if (linea === "-" || linea === "+") {
-                    tipo = (linea === "+") ? "income" : "expense";
+                    const tipo = (linea === "+") ? "income" : "expense";
                     
-                    // El monto suele estar en la siguiente línea después del signo peso
+                    // El signo pesos suele estar en la siguiente línea o en la misma.
                     if (i + 1 < lineas.length && lineas[i + 1] === "$") {
                         let offset = 2;
                         let parteEntera = lineas[i + offset] || "";
                         let parteDecimal = "00";
 
-                        // Mercado Pago a veces separa los decimales con coma en una línea nueva
-                        if (i + offset + 1 < lineas.length && lineas[i + offset + 1].startsWith(",")) {
+                        // Manejar decimales que puedan venir en líneas siguientes debido al copiado (ej: "," en una línea y "84" en la otra)
+                        if (i + offset + 1 < lineas.length && lineas[i + offset + 1] === ",") {
+                            parteDecimal = lineas[i + offset + 2] || "00";
+                            offset += 2;
+                        } else if (i + offset + 1 < lineas.length && lineas[i + offset + 1].startsWith(",")) {
                             parteDecimal = lineas[i + offset + 1].replace(",", "").trim();
                             offset++;
                         } else if (i + offset + 1 < lineas.length && /^\d{2}$/.test(lineas[i + offset + 1])) {
-                            // Caso donde los decimales vienen solos en la siguiente línea (ej: "84")
+                            // Si son dos dígitos sueltos, asumimos decimales
                             parteDecimal = lineas[i + offset + 1].trim();
                             offset++;
                         }
 
-                        // Limpiamos los puntos de miles
+                        // Limpiar y parsear monto
                         const valorLimpio = parteEntera.replace(/\./g, "") + "." + parteDecimal;
-                        monto = parseFloat(valorLimpio);
+                        const monto = parseFloat(valorLimpio);
 
-                        // 3. Buscar descripción hacia atrás (el nombre del comercio o persona)
+                        // 3. Buscar descripción real hacia atrás (recorriendo en reversa desde el signo "-" o "+")
                         let idxDesc = i - 1;
-                        descripcion = "";
-                        
+                        let descripcionEncontrada = "";
+                        let candidatos = [];
+
                         while (idxDesc >= 0) {
                             const lAtras = lineas[idxDesc];
-                            // Omitimos palabras clave del diseño de MP para encontrar el nombre real
+
+                            // Cortamos la búsqueda si nos topamos con otra transacción o fecha vieja
+                            if (lAtras === "-" || lAtras === "+" || lAtras.toLowerCase() === "hoy" || lAtras.toLowerCase() === "ayer" || lAtras.match(/^\d+\s+de\s+[a-z]+/i)) {
+                                break;
+                            }
+
+                            // Ignorar palabras del diseño de MP, horas y duplicados obvios
                             if (lAtras !== "Dinero disponible" && 
                                 lAtras !== "Aprobado" && 
                                 lAtras !== "Compra" && 
                                 lAtras !== "Transferencia enviada" &&
                                 lAtras !== "Ingreso de dinero" &&
                                 lAtras !== "Con transferencia" &&
-                                !lAtras.match(/^\d{2}:\d{2}$/)) { // Ignorar horas
+                                !lAtras.match(/^\d{2}:\d{2}$/)) { // Saltea horas (ej. 10:46)
                                 
-                                descripcion = lAtras;
-                                break;
+                                // Si ya guardamos este mismo string exacto justo en la línea de abajo, lo salteamos para evitar duplicados del copiado
+                                if (candidatos.length === 0 || candidatos[candidatos.length - 1] !== lAtras) {
+                                    candidatos.push(lAtras);
+                                }
                             }
                             idxDesc--;
                         }
 
-                        // Si no se encuentra descripción legible
-                        if (!descripcion) {
-                            descripcion = (tipo === "income") ? "Ingreso de dinero" : "Gasto Mercado Pago";
+                        // Tomamos el candidato más válido (el de más arriba en el bloque es el nombre del comercio/persona)
+                        if (candidatos.length > 0) {
+                            descripcionEncontrada = candidatos[candidatos.length - 1]; // El primero detectado en reversa profunda
                         }
 
-                        // Limpiar nombres duplicados consecutivos o textos basura
-                        descripcion = descripcion
+                        if (!descripcionEncontrada) {
+                            descripcionEncontrada = (tipo === "income") ? "Ingreso de dinero" : "Gasto Mercado Pago";
+                        }
+
+                        // Limpieza final de la descripción
+                        descripcionEncontrada = descripcionEncontrada
                             .replace(/pagaste a/gi, '')
+                            .replace(/transferencia enviada a/gi, '')
                             .trim();
+
+                        // Formatear lindo (Primera letra Mayúscula)
+                        if (descripcionEncontrada.length > 0) {
+                            descripcionEncontrada = descripcionEncontrada.charAt(0).toUpperCase() + descripcionEncontrada.slice(1);
+                        }
 
                         if (!isNaN(monto) && monto > 0) {
                             transaccionesDetectadas.push({
-                                description: descripcion,
+                                description: descripcionEncontrada,
                                 amount: monto,
                                 date: fechaActualStr,
                                 type: tipo,
@@ -986,13 +1003,13 @@
                             });
                         }
 
-                        i += offset; // Saltamos las líneas procesadas del bloque de monto
+                        i += offset; // Avanzar el cursor de líneas saltando la parte del dinero procesada
                     }
                 }
                 i++;
             }
 
-            // 4. Guardar directamente en Firestore todas las detectadas
+            // 4. Guardar en Firestore de forma directa
             if (transaccionesDetectadas.length > 0) {
                 let guardados = 0;
                 for (const tx of transaccionesDetectadas) {
@@ -1003,7 +1020,7 @@
                         });
                         guardados++;
                     } catch (err) {
-                        console.error("Error al guardar transacción:", tx, err);
+                        console.error("Error al guardar:", err);
                     }
                 }
                 rawTextInput.value = "";
