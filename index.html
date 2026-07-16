@@ -280,6 +280,22 @@
             width: auto;
             padding: 0 5px;
         }
+
+        .ai-selectors {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .ai-selectors .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        
+        .ai-selectors label {
+            font-size: 0.8rem;
+            color: #555;
+        }
     </style>
 </head>
 <body>
@@ -381,10 +397,22 @@
         </ul>
     </div>
 
-    <!-- 4. Módulo de Inteligencia Artificial (Al final para que no desplace nada) -->
+    <!-- 4. Módulo de Inteligencia Artificial con Rango Personalizado -->
     <div class="ai-card">
         <h2>💡 Consultor de Ahorro IA</h2>
-        <p style="font-size: 0.85rem; color: #7f8c8d; margin-top:-10px;">Analiza los últimos 2 meses para ver diferencias y armar un plan.</p>
+        <p style="font-size: 0.85rem; color: #7f8c8d; margin-top:-10px;">Seleccioná el rango de meses que querés analizar y comparar:</p>
+        
+        <div class="ai-selectors">
+            <div class="form-group">
+                <label for="ai-start-date">Mes Desde</label>
+                <input type="month" id="ai-start-date">
+            </div>
+            <div class="form-group">
+                <label for="ai-end-date">Mes Hasta</label>
+                <input type="month" id="ai-end-date">
+            </div>
+        </div>
+
         <button class="btn-ai" id="btn-ai-analyze">Analizar Gastos con Gemini</button>
         <div class="ai-response" id="ai-response-box">Aquí aparecerá el análisis...</div>
     </div>
@@ -441,6 +469,8 @@
 
     const btnAi = document.getElementById('btn-ai-analyze');
     const aiResponseBox = document.getElementById('ai-response-box');
+    const aiStartDateInput = document.getElementById('ai-start-date');
+    const aiEndDateInput = document.getElementById('ai-end-date');
 
     let unsubscribeSnapshot = null;
     let todasLasTransacciones = [];
@@ -451,6 +481,15 @@
     const mesActual = String(hoy.getMonth() + 1).padStart(2, '0');
     
     dateInput.value = hoy.toISOString().split('T')[0];
+
+    // Configurar por defecto el rango de la IA: mes anterior y mes actual
+    const mesPasado = new Date();
+    mesPasado.setMonth(hoy.getMonth() - 1);
+    const anioPasado = mesPasado.getFullYear();
+    const mesPasadoStr = String(mesPasado.getMonth() + 1).padStart(2, '0');
+
+    aiStartDateInput.value = `${anioPasado}-${mesPasadoStr}`;
+    aiEndDateInput.value = `${anioActual}-${mesActual}`;
 
     // Cargar selectores de año
     for (let i = anioActual - 2; i <= anioActual + 1; i++) {
@@ -601,24 +640,37 @@
             return;
         }
 
+        const startDateVal = aiStartDateInput.value; // Formato "YYYY-MM"
+        const endDateVal = aiEndDateInput.value;     // Formato "YYYY-MM"
+
+        if (!startDateVal || !endDateVal) {
+            alert("Por favor, seleccioná tanto el Mes Desde como el Mes Hasta para el análisis.");
+            return;
+        }
+
         btnAi.disabled = true;
         btnAi.innerText = "Analizando gastos... Espere por favor";
         aiResponseBox.style.display = 'block';
-        aiResponseBox.innerText = "Recopilando datos de los últimos 2 meses...";
+        aiResponseBox.innerText = "Filtrando registros para el período seleccionado...";
 
         try {
-            // Recopilar y filtrar datos de los últimos 2 meses
-            const hoy = new Date();
-            const dosMesesAtras = new Date();
-            dosMesesAtras.setMonth(hoy.getMonth() - 2);
+            // Convertir fechas seleccionadas de "YYYY-MM" a objetos Date para filtrar con precisión
+            const [startYear, startMonth] = startDateVal.split('-').map(Number);
+            const [endYear, endMonth] = endDateVal.split('-').map(Number);
+
+            // Generamos fechas límites para comparar.
+            // Fecha de inicio: primer día del mes elegido a las 00:00:00
+            const limiteInferior = new Date(startYear, startMonth - 1, 1);
+            // Fecha de fin: último día del mes elegido a las 23:59:59
+            const limiteSuperior = new Date(endYear, endMonth, 0, 23, 59, 59);
 
             const registrosFiltrados = todasLasTransacciones.filter(tx => {
                 const fechaTx = new Date(tx.date + 'T00:00:00');
-                return fechaTx >= dosMesesAtras;
+                return fechaTx >= limiteInferior && fechaTx <= limiteSuperior;
             });
 
             if (registrosFiltrados.length === 0) {
-                aiResponseBox.innerText = "No se encontraron gastos cargados en los últimos dos meses para analizar.";
+                aiResponseBox.innerText = `No se encontraron gastos cargados entre ${startDateVal} y ${endDateVal} para analizar.`;
                 btnAi.disabled = false;
                 btnAi.innerText = "Analizar Gastos con Gemini";
                 return;
@@ -634,16 +686,18 @@
 
             const promptContent = `
 Actúa como un asesor financiero experto, cálido y analítico para una pareja llamada Nico y Ceci. 
-Analiza los siguientes movimientos financieros de los últimos dos meses para ayudarlos a entender en qué se les está yendo más dinero, comparar comportamientos de consumo y diseñar un plan de ahorro amigable de aproximadamente el 10% de sus egresos.
+Analiza los siguientes movimientos financieros que corresponden exclusivamente al rango de meses desde ${startDateVal} hasta ${endDateVal}. 
+Ayúdalos a entender en qué se les está yendo más dinero en este rango temporal seleccionado, comparar los comportamientos de consumo y diseñar un plan de ahorro amigable de aproximadamente el 10% de sus egresos.
 
-Aquí tienes la lista completa de transacciones:
+Aquí tienes la lista completa de transacciones del rango seleccionado:
 ${JSON.stringify(datosParaGemini, null, 2)}
 
 Por favor, estructura tu respuesta de la siguiente forma utilizando viñetas y títulos claros:
-1. **Resumen rápido de salud financiera:** Cuánto se ingresó y cuánto se gastó en total.
-2. **Los mayores desvíos de dinero:** Agrupa los gastos similares de forma lógica (ej. comidas, servicios, compras hormiga) y destaca cuáles son las categorías más pesadas.
-3. **Comparativa mensual:** Si hay datos de dos meses, contrasta cuál fue más caro y en qué rubros hubo variaciones.
-4. **Plan de acción y plan de ahorro (10%):** Recomendaciones hiper-concretas y viables para reducir gastos sin perder calidad de vida. Haz referencia a Nico y Ceci en tus consejos si es relevante.
+1. **Rango de fechas analizado:** Deja claro qué meses estás comparando/analizando.
+2. **Resumen de salud financiera en este período:** Cuánto se ingresó y cuánto se gastó en total acumulado.
+3. **Los mayores desvíos de dinero:** Agrupa los gastos similares de forma lógica (ej. comidas, servicios, compras hormiga) y destaca cuáles son las categorías más pesadas de estos meses.
+4. **Comparativa entre períodos elegidos:** Contrasta las diferencias de consumo notables entre los meses de este rango (por ejemplo, si se compara un mes de un año con el mismo del año anterior, o dos meses continuos, señala los cambios marcados).
+5. **Plan de acción y plan de ahorro (10%):** Recomendaciones hiper-concretas y viables para reducir gastos sin perder calidad de vida, personalizadas para Nico y Ceci.
             `;
 
             // Modelos 100% activos y soportados en la API actual
@@ -682,7 +736,6 @@ Por favor, estructura tu respuesta de la siguiente forma utilizando viñetas y t
             if (respuestaExitosa && respuestaExitosa.candidates && respuestaExitosa.candidates[0]?.content?.parts[0]) {
                 aiResponseBox.innerText = respuestaExitosa.candidates[0].content.parts[0].text;
             } else {
-                // Si todos fallaron, listamos el detalle de cada uno para poder diagnosticar
                 const resumenErrores = historialErrores.map(err => `• ${err}`).join('\n');
                 throw new Error(`Ninguno de los modelos disponibles pudo procesar la solicitud.\n\nDetalle de errores:\n${resumenErrores}`);
             }
