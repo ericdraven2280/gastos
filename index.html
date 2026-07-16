@@ -3,393 +3,1210 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Gastos Personales</title>
-    <!-- Tailwind CSS desde CDN para diseño rápido y elegante -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Control de Gastos en Pareja</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* Personalización rápida del interruptor (toggle switch) */
-        .dot { transition: all 0.3s ease-in-out; }
-        input:checked ~ .dot { transform: translateX(100%); }
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --primary: #4a90e2;
+            --income: #2ecc71;
+            --expense: #e74c3c;
+            --ai-color: #8e44ad;
+            --mp-color: #009ee3;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 90vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            display: none; /* Se muestra solo al iniciar sesión */
+        }
+
+        /* Pantalla de Login */
+        .login-card {
+            background: var(--card-bg);
+            padding: 40px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        h1, h2, h3 {
+            text-align: center;
+            color: #2c3e50;
+            margin-top: 0;
+        }
+
+        .balance-card, .form-card, .ai-card, .history-card, .chart-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .user-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+
+        .right-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logout-btn {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 5px 10px;
+        }
+
+        .settings-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px;
+        }
+
+        /* Selector de Período */
+        .period-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .period-selector select {
+            width: auto;
+            padding: 8px 15px;
+            font-weight: bold;
+            border-radius: 20px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+            cursor: pointer;
+        }
+
+        .balance-num {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .flex-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .stat {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .stat.inc { background-color: var(--income); }
+        .stat.exp { background-color: var(--expense); }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+
+        textarea {
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover { background-color: #357abd; }
+
+        .btn-ai {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--ai-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 15px;
+        }
+        .btn-ai:hover { background-color: #732d91; }
+
+        .btn-secondary-ai {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+        .btn-secondary-ai:hover { background-color: #27ae60; }
+
+        .ai-response {
+            background-color: #f9f5fc;
+            border-left: 4px solid var(--ai-color);
+            padding: 15px;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            display: none;
+        }
+
+        /* Botón de Google */
+        .google-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fff;
+            color: #757575;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: background-color 0.2s;
+            margin-top: 20px;
+        }
+        .google-btn:hover { background-color: #fafafa; }
+        .google-btn img { width: 20px; margin-right: 10px; }
+
+        .list {
+            list-style-type: none;
+            padding: 0;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 0.95rem;
+        }
+
+        .list-item .details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .list-item .responsible {
+            font-size: 0.75rem;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-top: 2px;
+        }
+
+        .list-item .date-span {
+            font-size: 0.75rem;
+            color: #95a5a6;
+        }
+
+        .amt-inc { color: var(--income); font-weight: bold; }
+        .amt-exp { color: var(--expense); font-weight: bold; }
+        
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #c0392b;
+            cursor: pointer;
+            font-size: 1.2rem;
+            width: auto;
+            padding: 0 5px;
+        }
+
+        .ai-selectors {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .ai-selectors .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        
+        .ai-selectors label {
+            font-size: 0.8rem;
+            color: #555;
+        }
+
+        /* Contenedor del Gráfico */
+        .chart-container {
+            position: relative;
+            margin: auto;
+            height: 220px;
+            width: 220px;
+        }
+        
+        /* Contenedor de Carga Rápida */
+        .fast-input-card {
+            background-color: #f1f8ff;
+            border-left: 4px solid var(--primary);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        .fast-input-card.mp-active {
+            background-color: #e6f7ff;
+            border-left-color: var(--mp-color);
+        }
+
+        /* Switch UI */
+        .switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(0,0,0,0.03);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .switch-label {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #445566;
+        }
+
+        .switch-toggle {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .switch-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--primary);
+            transition: .3s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px; width: 18px;
+            left: 4px; bottom: 4px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--mp-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
+<body>
 
-    <div class="container mx-auto px-4 py-8 max-w-4xl">
-        <!-- Encabezado -->
-        <header class="mb-8 text-center md:text-left">
-            <h1 class="text-3xl font-extrabold text-indigo-400">Control de Finanzas</h1>
-            <p class="text-gray-400 text-sm mt-1">Ingreso manual rápido o importación directa desde Mercado Pago</p>
-        </header>
+<div class="login-card" id="login-container">
+    <h2>💸 Gastos Compartidos</h2>
+    <p>Iniciá sesión con tu cuenta de Google autorizada para acceder al control de gastos.</p>
+    <button class="google-btn" id="btn-login">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google">
+        Acceder con Google
+    </button>
+</div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <!-- COLUMNA IZQUIERDA: Formulario de Carga Tradicional -->
-            <div class="md:col-span-1 bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700 h-fit">
-                <h2 class="text-lg font-bold mb-4 text-indigo-300">Nuevo Movimiento</h2>
-                
-                <form id="txForm" class="space-y-4">
-                    <div>
-                        <label class="block text-xs text-gray-400 mb-1">Descripción</label>
-                        <input id="descriptionInput" type="text" placeholder="Ej: Supermercado" required 
-                               class="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-
-                    <div>
-                        <label class="block text-xs text-gray-400 mb-1">Monto ($)</label>
-                        <input id="amountInput" type="number" step="0.01" placeholder="0.00" required
-                               class="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-
-                    <div>
-                        <label class="block text-xs text-gray-400 mb-1">Fecha</label>
-                        <input id="dateInput" type="date" required
-                               class="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-
-                    <div>
-                        <label class="block text-xs text-gray-400 mb-1">Tipo</label>
-                        <select id="typeInput" class="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="expense">Gasto (-)</option>
-                            <option value="income">Ingreso (+)</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs text-gray-400 mb-1">Asignado a</label>
-                        <select id="userInput" class="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="Ambos">Ambos</option>
-                            <option value="Nico">Nico</option>
-                            <option value="Ceci">Ceci</option>
-                        </select>
-                    </div>
-
-                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-lg text-sm transition-all shadow-md">
-                        Guardar Registro
-                    </button>
-                </form>
-            </div>
-
-            <!-- COLUMNA DERECHA: Entrada de Texto Libre e Importación MP -->
-            <div class="md:col-span-2 bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700 flex flex-col justify-between">
-                <div>
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-                        <h2 class="text-lg font-bold text-indigo-300">Carga Inteligente / Importación</h2>
-                        
-                        <!-- Toggle Switch: Modo Texto Libre vs Modo Mercado Pago -->
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs text-gray-400">Modo Texto</span>
-                            <label for="modeSwitch" class="flex items-center cursor-pointer select-none">
-                                <div class="relative">
-                                    <input type="checkbox" id="modeSwitch" class="sr-only" checked>
-                                    <div class="block bg-gray-600 w-10 h-6 rounded-full"></div>
-                                    <div class="dot absolute left-1 top-1 bg-indigo-400 w-4 h-4 rounded-full transition-transform"></div>
-                                </div>
-                            </label>
-                            <span class="text-xs text-indigo-400 font-bold">Mercado Pago</span>
-                        </div>
-                    </div>
-
-                    <!-- Input para asignación por defecto al procesar de MP -->
-                    <div class="mb-4 bg-gray-900 p-3 rounded-lg border border-gray-700 flex items-center justify-between">
-                        <span class="text-xs text-gray-400">Asignar transacciones de MP por defecto a:</span>
-                        <select id="mpDefaultUser" class="bg-gray-800 text-white text-xs rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                            <option value="Ambos">Ambos</option>
-                            <option value="Nico" selected>Nico</option>
-                            <option value="Ceci">Ceci</option>
-                        </select>
-                    </div>
-
-                    <textarea id="rawTextInput" rows="10" 
-                              placeholder="Pegá acá el texto libre (ej: 'Ayer gastamos 1500 en mcdonalds nico') o seleccioná el texto del resumen web de Mercado Pago y pegalo completo acá..." 
-                              class="w-full bg-gray-900 text-gray-200 border border-gray-700 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"></textarea>
-                </div>
-
-                <div class="mt-4">
-                    <button id="btnProcessRaw" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2">
-                        <span>⚡ Procesar e Importar</span>
-                    </button>
-                </div>
-            </div>
+<div class="container" id="app-container">
+    <div class="user-header">
+        <span id="user-display">Cargando usuario...</span>
+        <div class="right-header">
+            <button class="settings-btn" id="btn-settings" title="Configurar API Key">⚙️</button>
+            <button class="logout-btn" id="btn-logout">Salir</button>
         </div>
     </div>
 
-    <!-- Firebase SDK v9+ (Módulos vía CDN) -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-
-        // =========================================================================
-        // CONFIGURACIÓN DE FIREBASE (Reemplazá con tus credenciales reales)
-        // =========================================================================
-        const firebaseConfig = {
-            apiKey: "TU_API_KEY",
-            authDomain: "TU_PROJECT_ID.firebaseapp.com",
-            projectId: "TU_PROJECT_ID",
-            storageBucket: "TU_PROJECT_ID.appspot.com",
-            messagingSenderId: "TU_SENDER_ID",
-            appId: "TU_APP_ID"
-        };
-
-        // Inicializar Firebase y Firestore
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const txCollection = collection(db, "transacciones"); // Nombre de tu colección en Firestore
-
-        // =========================================================================
-        // ELEMENTOS DEL DOM
-        // =========================================================================
-        const txForm = document.getElementById('txForm');
-        const descriptionInput = document.getElementById('descriptionInput');
-        const amountInput = document.getElementById('amountInput');
-        const dateInput = document.getElementById('dateInput');
-        const typeInput = document.getElementById('typeInput');
-        const userInput = document.getElementById('userInput');
+    <div class="balance-card">
+        <div class="period-selector">
+            <select id="filter-month">
+                <option value="01">Enero</option>
+                <option value="02">Febrero</option>
+                <option value="03">Marzo</option>
+                <option value="04">Abril</option>
+                <option value="05">Mayo</option>
+                <option value="06">Junio</option>
+                <option value="07">Julio</option>
+                <option value="08">Agosto</option>
+                <option value="09">Septiembre</option>
+                <option value="10">Octubre</option>
+                <option value="11">Noviembre</option>
+                <option value="12">Diciembre</option>
+            </select>
+            <select id="filter-year">
+                </select>
+        </div>
         
-        const modeSwitch = document.getElementById('modeSwitch');
-        const mpDefaultUser = document.getElementById('mpDefaultUser');
-        const rawTextInput = document.getElementById('rawTextInput');
-        const btnProcessRaw = document.getElementById('btnProcessRaw');
+        <h3>Balance del Período</h3>
+        <div class="balance-num" id="balance">$0.00</div>
+        <div class="flex-row">
+            <div class="stat inc">Ingresos: <span id="total-income">$0</span></div>
+            <div class="stat exp">Gastos: <span id="total-expenses">$0</span></div>
+        </div>
+    </div>
 
-        // Establecer la fecha de hoy por defecto en el campo de fecha manual
-        const hoy = new Date();
-        dateInput.value = hoy.toISOString().split('T')[0];
+    <div class="form-card">
+        <h2>Añadir Transacción</h2>
+        <form id="tx-form">
+            <div class="form-group">
+                <label for="description">Descripción</label>
+                <input type="text" id="description" placeholder="Ej. Supermercado, Luz..." required>
+            </div>
+            <div class="flex-row" style="margin-bottom: 15px;">
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                    <label for="amount">Monto ($)</label>
+                    <input type="number" id="amount" step="0.01" placeholder="Ej. 1500" required>
+                </div>
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                    <label for="date">Fecha</label>
+                    <input type="date" id="date" required>
+                </div>
+            </div>
+            <div class="flex-row">
+                <div class="form-group" style="flex: 1;">
+                    <label for="type">Tipo</label>
+                    <select id="type">
+                        <option value="expense">Gasto</option>
+                        <option value="income">Ingreso</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="user">¿Quién?</label>
+                    <select id="user">
+                        <option value="Nico">Nico</option>
+                        <option value="Ceci">Ceci</option>
+                        <option value="Ambos">Ambos</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn-primary" type="submit">Guardar Registro</button>
+        </form>
+    </div>
 
-        // =========================================================================
-        // ACCIÓN 1: GUARDADO MANUAL TRADICIONAL
-        // =========================================================================
-        txForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
+    <div class="fast-input-card" id="fast-card-container">
+        <h2 id="fast-title" style="margin-top: 0; color: var(--primary); font-size: 1.2rem; display: flex; align-items: center; gap: 5px;">
+            💬 Carga Rápida (Texto Libre)
+        </h2>
+        
+        <div class="switch-container">
+            <span class="switch-label" id="switch-text-indicator">Modo: Interpretar Mensaje</span>
+            <label class="switch-toggle">
+                <input type="checkbox" id="mode-switch">
+                <span class="slider"></span>
+            </label>
+        </div>
 
-            const nuevaTransaccion = {
-                description: descriptionInput.value.trim(),
+        <p id="fast-help-text" style="font-size: 0.8rem; color: #546e7a; margin-top: -8px; margin-bottom: 10px;">
+            Pegá el texto que te mandaron. ¡Se procesará al instante de forma local!
+        </p>
+        
+        <div class="form-group">
+            <textarea id="raw-text-input" rows="3" placeholder="Ej: Ceci: 18500 super chino..."></textarea>
+        </div>
+
+        <div class="form-group" id="mp-user-selector-group" style="display: none; margin-bottom: 12px;">
+            <label for="mp-default-user" style="font-size: 0.85rem; color: #555;">¿A quién asignarle estos gastos de Mercado Pago?</label>
+            <select id="mp-default-user" style="padding: 6px 10px; font-size: 0.9rem;">
+                <option value="Nico">Nico</option>
+                <option value="Ceci">Ceci</option>
+                <option value="Ambos">Ambos</option>
+            </select>
+        </div>
+
+        <button class="btn-secondary-ai" id="btn-process-raw" style="width: 100%;">Procesar Entrada Al Instante ⚡</button>
+    </div>
+
+    <div class="history-card">
+        <h2>Historial de Movimientos</h2>
+        <ul id="tx-list" class="list">
+            </ul>
+    </div>
+
+    <div class="chart-card" id="chart-card-box">
+        <h2>📊 Distribución de Egresos</h2>
+        <div class="chart-container">
+            <canvas id="expenses-chart"></canvas>
+        </div>
+    </div>
+
+    <div class="ai-card">
+        <h2>💡 Consultor de Ahorro IA</h2>
+        
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="ai-mode">Modo de Análisis</label>
+            <select id="ai-mode">
+                <option value="range">Rango continuo de meses (Ej: Enero a Mayo)</option>
+                <option value="specific">Comparar dos meses específicos (Ej: Junio 2025 vs Junio 2026)</option>
+            </select>
+        </div>
+
+        <div class="ai-selectors" id="container-ai-range">
+            <div class="form-group">
+                <label for="ai-start-month">Desde</label>
+                <input type="month" id="ai-start-month">
+            </div>
+            <div class="form-group">
+                <label for="ai-end-month">Hasta</label>
+                <input type="month" id="ai-end-month">
+            </div>
+        </div>
+
+        <div class="ai-selectors" id="container-ai-specific" style="display: none;">
+            <div class="form-group">
+                <label for="ai-month-a">Mes A</label>
+                <input type="month" id="ai-month-a">
+            </div>
+            <div class="form-group">
+                <label for="ai-month-b">Mes B</label>
+                <input type="month" id="ai-month-b">
+            </div>
+        </div>
+
+        <button class="btn-ai" id="btn-ai-analyze">Analizar Gastos con Gemini</button>
+        <div class="ai-response" id="ai-response-box">Aquí aparecerá el análisis...</div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+        getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { 
+        getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyA0g6LsMmYZPgsPnSgNxjOSkkJmR7JTCJI",
+        authDomain: "control-de-gastos-db169.firebaseapp.com",
+        projectId: "control-de-gastos-db169",
+        storageBucket: "control-de-gastos-db169.firebasestorage.app",
+        messagingSenderId: "619984664390",
+        appId: "1:619984664390:web:a90f4dcb91a1c5d06cd747"
+    };
+
+    // Inicializar Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+    const txCollection = collection(db, "transacciones");
+
+    // Elementos del DOM
+    const loginContainer = document.getElementById('login-container');
+    const appContainer = document.getElementById('app-container');
+    const btnLogin = document.getElementById('btn-login');
+    const btnLogout = document.getElementById('btn-logout');
+    const btnSettings = document.getElementById('btn-settings');
+    const userDisplay = document.getElementById('user-display');
+    
+    const form = document.getElementById('tx-form');
+    const descriptionInput = document.getElementById('description');
+    const amountInput = document.getElementById('amount');
+    const dateInput = document.getElementById('date');
+    const typeInput = document.getElementById('type');
+    const userInput = document.getElementById('user');
+    
+    const filterMonth = document.getElementById('filter-month');
+    const filterYear = document.getElementById('filter-year');
+    
+    const txList = document.getElementById('tx-list');
+    const balanceEl = document.getElementById('balance');
+    const incomeEl = document.getElementById('total-income');
+    const expensesEl = document.getElementById('total-expenses');
+
+    const btnAi = document.getElementById('btn-ai-analyze');
+    const aiResponseBox = document.getElementById('ai-response-box');
+    
+    // Selectores IA
+    const aiMode = document.getElementById('ai-mode');
+    const containerAiRange = document.getElementById('container-ai-range');
+    const containerAiSpecific = document.getElementById('container-ai-specific');
+    
+    const aiStartMonthInput = document.getElementById('ai-start-month');
+    const aiEndMonthInput = document.getElementById('ai-end-month');
+    const aiMonthAInput = document.getElementById('ai-month-a');
+    const aiMonthBInput = document.getElementById('ai-month-b');
+
+    // Elementos Carga Rápida / Switch
+    const fastCardContainer = document.getElementById('fast-card-container');
+    const fastTitle = document.getElementById('fast-title');
+    const modeSwitch = document.getElementById('mode-switch');
+    const switchIndicator = document.getElementById('switch-text-indicator');
+    const fastHelpText = document.getElementById('fast-help-text');
+    const rawTextInput = document.getElementById('raw-text-input');
+    const btnProcessRaw = document.getElementById('btn-process-raw');
+    const mpUserSelectorGroup = document.getElementById('mp-user-selector-group');
+    const mpDefaultUser = document.getElementById('mp-default-user');
+
+    let unsubscribeSnapshot = null;
+    let todasLasTransacciones = [];
+    let myChart = null; 
+
+    // Configurar fechas de hoy por defecto
+    const hoy = new Date();
+    const anioActual = hoy.getFullYear();
+    const mesActual = String(hoy.getMonth() + 1).padStart(2, '0');
+    
+    dateInput.value = hoy.toISOString().split('T')[0];
+
+    const mesPasado = new Date();
+    mesPasado.setMonth(hoy.getMonth() - 1);
+    const anioPasado = mesPasado.getFullYear();
+    const mesPasadoStr = String(mesPasado.getMonth() + 1).padStart(2, '0');
+
+    aiStartMonthInput.value = `${anioPasado}-${mesPasadoStr}`;
+    aiEndMonthInput.value = `${anioActual}-${mesActual}`;
+    aiMonthAInput.value = `${anioPasado}-${mesPasadoStr}`;
+    aiMonthBInput.value = `${anioActual}-${mesActual}`;
+
+    // Control del Switch de Modo (Carga Rápida vs Mercado Pago)
+    modeSwitch.addEventListener('change', () => {
+        if (modeSwitch.checked) {
+            // Modo Mercado Pago
+            fastCardContainer.classList.add('mp-active');
+            fastTitle.innerHTML = '💙 Importar de Mercado Pago';
+            fastTitle.style.color = 'var(--mp-color)';
+            switchIndicator.innerText = 'Modo: Importar de Mercado Pago';
+            fastHelpText.innerText = 'Copiá y pegá los movimientos directo de la web de Mercado Pago. ¡Se autocompletarán los datos!';
+            rawTextInput.placeholder = 'Pegá acá las filas copiadas desde la web de Mercado Pago...';
+            mpUserSelectorGroup.style.display = 'block';
+            btnProcessRaw.style.backgroundColor = 'var(--mp-color)';
+            btnProcessRaw.innerText = 'Interpretar Datos de Mercado Pago 💸';
+        } else {
+            // Modo Texto Libre
+            fastCardContainer.classList.remove('mp-active');
+            fastTitle.innerHTML = '💬 Carga Rápida (Texto Libre)';
+            fastTitle.style.color = 'var(--primary)';
+            switchIndicator.innerText = 'Modo: Interpretar Mensaje';
+            fastHelpText.innerText = 'Pegá el texto que te mandaron. ¡Se procesará al instante de forma local!';
+            rawTextInput.placeholder = 'Ej: Ceci: 18500 super chino o pagué internet 9200 Nico...';
+            mpUserSelectorGroup.style.display = 'none';
+            btnProcessRaw.style.backgroundColor = '#2ecc71';
+            btnProcessRaw.innerText = 'Procesar Mensaje Al Instante ⚡';
+        }
+    });
+
+    aiMode.addEventListener('change', () => {
+        if (aiMode.value === 'range') {
+            containerAiRange.style.display = 'flex';
+            containerAiSpecific.style.display = 'none';
+        } else {
+            containerAiRange.style.display = 'none';
+            containerAiSpecific.style.display = 'flex';
+        }
+    });
+
+    for (let i = anioActual - 2; i <= anioActual + 1; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.innerText = i;
+        if (i === anioActual) option.selected = true;
+        filterYear.appendChild(option);
+    }
+    filterMonth.value = mesActual;
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            userDisplay.innerText = `Sesión: ${user.displayName}`;
+            loginContainer.style.display = 'none';
+            appContainer.style.display = 'block';
+            document.body.style.alignItems = 'flex-start';
+            activarEscuchaRealtime();
+        } else {
+            loginContainer.style.display = 'block';
+            appContainer.style.display = 'none';
+            document.body.style.alignItems = 'center';
+            if (unsubscribeSnapshot) unsubscribeSnapshot();
+        }
+    });
+
+    btnLogin.addEventListener('click', async () => {
+        try { await signInWithPopup(auth, provider); } 
+        catch (error) { alert("Error al iniciar sesión."); }
+    });
+    btnLogout.addEventListener('click', () => signOut(auth));
+
+    btnSettings.addEventListener('click', () => {
+        const guardada = localStorage.getItem('gemini_api_key') || '';
+        const key = prompt("Ingresá tu API Key de Gemini (se guardará localmente):", guardada);
+        if (key !== null) {
+            localStorage.setItem('gemini_api_key', key.trim());
+            alert("API Key guardada localmente.");
+        }
+    });
+
+    function activarEscuchaRealtime() {
+        const q = query(txCollection, orderBy("date", "desc"));
+        unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+            todasLasTransacciones = [];
+            snapshot.forEach((docSnap) => {
+                todasLasTransacciones.push({
+                    id: docSnap.id,
+                    ...docSnap.data()
+                });
+            });
+            renderizarYFiltrar();
+        }, (error) => {
+            console.error(error);
+            txList.innerHTML = '<li style="color:red; text-align:center;">Error en Firestore.</li>';
+        });
+    }
+
+    function renderizarYFiltrar() {
+        const mesElegido = filterMonth.value;
+        const anioElegido = filterYear.value;
+        txList.innerHTML = '';
+        let income = 0;
+        let expenses = 0;
+        const distribucionGastos = {};
+
+        todasLasTransacciones.forEach((tx) => {
+            const [anioTx, mesTx, diaTx] = tx.date.split('-');
+            if (anioTx === anioElegido && mesTx === mesElegido) {
+                const sign = tx.type === 'income' ? '+' : '-';
+                const itemClass = tx.type === 'income' ? 'amt-inc' : 'amt-exp';
+                
+                if (tx.type === 'income') {
+                    income += tx.amount;
+                } else {
+                    expenses += tx.amount;
+                    const descSimplificada = tx.description.trim().toLowerCase();
+                    const descCapitalizada = descSimplificada.charAt(0).toUpperCase() + descSimplificada.slice(1);
+                    distribucionGastos[descCapitalizada] = (distribucionGastos[descCapitalizada] || 0) + tx.amount;
+                }
+
+                const fechaFormateada = `${diaTx}/${mesTx}`;
+                const li = document.createElement('li');
+                li.classList.add('list-item');
+                li.innerHTML = `
+                    <div class="details">
+                        <span>${tx.description} <span class="date-span">(${fechaFormateada})</span></span>
+                        <span class="responsible">Por: ${tx.user}</span>
+                    </div>
+                    <div>
+                        <span class="${itemClass}">${sign}$${tx.amount.toFixed(2)}</span>
+                        <button class="delete-btn" data-id="${tx.id}">×</button>
+                    </div>
+                `;
+                txList.appendChild(li);
+            }
+        });
+
+        const totalBalance = income - expenses;
+        balanceEl.innerText = `$${totalBalance.toFixed(2)}`;
+        incomeEl.innerText = `$${income.toFixed(2)}`;
+        expensesEl.innerText = `$${expenses.toFixed(2)}`;
+        balanceEl.style.color = totalBalance >= 0 ? '#2ecc71' : '#e74c3c';
+
+        actualizarGrafico(distribucionGastos);
+    }
+
+    function actualizarGrafico(datosEgresos) {
+        const etiquetas = Object.keys(datosEgresos);
+        const valores = Object.values(datosEgresos);
+        const chartCard = document.getElementById('chart-card-box');
+
+        if (etiquetas.length === 0) {
+            chartCard.style.display = 'none';
+            return;
+        }
+        
+        chartCard.style.display = 'block';
+        const ctx = document.getElementById('expenses-chart').getContext('2d');
+
+        if (myChart) {
+            myChart.destroy();
+        }
+
+        myChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: etiquetas,
+                datasets: [{
+                    data: valores,
+                    backgroundColor: [
+                        '#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', 
+                        '#1abc9c', '#e67e22', '#34495e', '#e84393', '#fdcb6e'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ` ${context.label}: $${context.raw.toFixed(2)}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    filterMonth.addEventListener('change', renderizarYFiltrar);
+    filterYear.addEventListener('change', renderizarYFiltrar);
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+            await addDoc(txCollection, {
+                description: descriptionInput.value,
                 amount: parseFloat(amountInput.value),
                 date: dateInput.value,
                 type: typeInput.value,
                 user: userInput.value,
                 createdAt: Date.now()
-            };
+            });
+            descriptionInput.value = '';
+            amountInput.value = '';
+        } catch (error) {
+            console.error(error);
+            alert("No se pudo guardar.");
+        }
+    });
 
-            try {
-                await addDoc(txCollection, nuevaTransaccion);
-                alert("¡Transacción guardada con éxito!");
-                txForm.reset();
-                dateInput.value = hoy.toISOString().split('T')[0]; // Resetear a hoy
-            } catch (err) {
-                console.error("Error al guardar:", err);
-                alert("Error al intentar guardar en Firestore.");
+    txList.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('delete-btn')) {
+            const id = e.target.getAttribute('data-id');
+            if (confirm("¿Seguro que querés borrar este registro?")) {
+                try { await deleteDoc(doc(db, "transacciones", id)); } 
+                catch (error) { console.error(error); }
             }
-        });
+        }
+    });
 
-        // =========================================================================
-        // ACCIÓN 2: PROCESAMIENTO INTELIGENTE (TEXTO LIBRE / MERCADO PAGO)
-        // =========================================================================
-        btnProcessRaw.addEventListener('click', async () => {
-            const textoOriginal = rawTextInput.value.trim();
-            if (!textoOriginal) {
-                alert("Por favor, escribí o pegá un texto primero.");
+    // ==========================================
+    // PROCESAMIENTO UNIFICADO (TEXTO LIBRE / MERCADO PAGO)
+    // ==========================================
+    btnProcessRaw.addEventListener('click', async () => {
+        const textoOriginal = rawTextInput.value.trim();
+        if (!textoOriginal) {
+            alert("Por favor, escribí o pegá un texto primero.");
+            return;
+        }
+
+        if (modeSwitch.checked) {
+            // --- MODO MERCADO PAGO OPTIMIZADO ---
+            const lineas = textoOriginal.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            
+            let transaccionesDetectadas = [];
+            let i = 0;
+
+            // Variables de control para armar una transacción por lote
+            let fechaActualStr = hoy.toISOString().split('T')[0];
+            let descripcion = "";
+            let tipo = "expense";
+            let monto = null;
+
+            const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+            while (i < lineas.length) {
+                const linea = lineas[i];
+
+                // 1. Detectar Cambios de Fecha en el lote copiado
+                if (linea.toLowerCase() === "hoy") {
+                    fechaActualStr = hoy.toISOString().split('T')[0];
+                    i++;
+                    continue;
+                } else if (linea.toLowerCase() === "ayer") {
+                    const ayer = new Date();
+                    ayer.setDate(ayer.getDate() - 1);
+                    fechaActualStr = ayer.toISOString().split('T')[0];
+                    i++;
+                    continue;
+                } else {
+                    // Match fechas tipo "15 de julio"
+                    const matchFecha = linea.match(/^(\d+)\s+de\s+([a-z]+)/i);
+                    if (matchFecha) {
+                        const dia = parseInt(matchFecha[1]);
+                        const mesStr = matchFecha[2].toLowerCase();
+                        const numMes = meses.indexOf(mesStr);
+                        if (numMes !== -1) {
+                            const anioParaFecha = hoy.getFullYear();
+                            const fechaTemp = new Date(anioParaFecha, numMes, dia);
+                            fechaActualStr = fechaTemp.toISOString().split('T')[0];
+                        }
+                        i++;
+                        continue;
+                    }
+                }
+
+                // 2. Si detectamos un signo de operación solo ("-" o "+")
+                if (linea === "-" || linea === "+") {
+                    tipo = (linea === "+") ? "income" : "expense";
+                    
+                    // El monto suele estar en la siguiente línea después del signo peso
+                    if (i + 1 < lineas.length && lineas[i + 1] === "$") {
+                        let offset = 2;
+                        let parteEntera = lineas[i + offset] || "";
+                        let parteDecimal = "00";
+
+                        // Mercado Pago a veces separa los decimales con coma en una línea nueva
+                        if (i + offset + 1 < lineas.length && lineas[i + offset + 1].startsWith(",")) {
+                            parteDecimal = lineas[i + offset + 1].replace(",", "").trim();
+                            offset++;
+                        } else if (i + offset + 1 < lineas.length && /^\d{2}$/.test(lineas[i + offset + 1])) {
+                            // Caso donde los decimales vienen solos en la siguiente línea (ej: "84")
+                            parteDecimal = lineas[i + offset + 1].trim();
+                            offset++;
+                        }
+
+                        // Limpiamos los puntos de miles
+                        const valorLimpio = parteEntera.replace(/\./g, "") + "." + parteDecimal;
+                        monto = parseFloat(valorLimpio);
+
+                        // 3. Buscar descripción hacia atrás (el nombre del comercio o persona)
+                        let idxDesc = i - 1;
+                        descripcion = "";
+                        
+                        while (idxDesc >= 0) {
+                            const lAtras = lineas[idxDesc];
+                            // Omitimos palabras clave del diseño de MP para encontrar el nombre real
+                            if (lAtras !== "Dinero disponible" && 
+                                lAtras !== "Aprobado" && 
+                                lAtras !== "Compra" && 
+                                lAtras !== "Transferencia enviada" &&
+                                lAtras !== "Ingreso de dinero" &&
+                                lAtras !== "Con transferencia" &&
+                                !lAtras.match(/^\d{2}:\d{2}$/)) { // Ignorar horas
+                                
+                                descripcion = lAtras;
+                                break;
+                            }
+                            idxDesc--;
+                        }
+
+                        // Si no se encuentra descripción legible
+                        if (!descripcion) {
+                            descripcion = (tipo === "income") ? "Ingreso de dinero" : "Gasto Mercado Pago";
+                        }
+
+                        // Limpiar nombres duplicados consecutivos o textos basura
+                        descripcion = descripcion
+                            .replace(/pagaste a/gi, '')
+                            .trim();
+
+                        if (!isNaN(monto) && monto > 0) {
+                            transaccionesDetectadas.push({
+                                description: descripcion,
+                                amount: monto,
+                                date: fechaActualStr,
+                                type: tipo,
+                                user: mpDefaultUser.value
+                            });
+                        }
+
+                        i += offset; // Saltamos las líneas procesadas del bloque de monto
+                    }
+                }
+                i++;
+            }
+
+            // 4. Guardar directamente en Firestore todas las detectadas
+            if (transaccionesDetectadas.length > 0) {
+                let guardados = 0;
+                for (const tx of transaccionesDetectadas) {
+                    try {
+                        await addDoc(txCollection, {
+                            ...tx,
+                            createdAt: Date.now()
+                        });
+                        guardados++;
+                    } catch (err) {
+                        console.error("Error al guardar transacción:", tx, err);
+                    }
+                }
+                rawTextInput.value = "";
+                alert(`¡Se procesaron e importaron con éxito ${guardados} movimientos a la base de datos!`);
+            } else {
+                alert("No pudimos extraer transacciones estructuradas de este bloque de texto. Comprobá que incluya los montos y los signos + o -.");
+            }
+
+        } else {
+            // --- MODO TEXTO LIBRE (Original) ---
+            let texto = textoOriginal.toLowerCase();
+            const regexMonto = /(?:[\$]?)\s*(\d+(?:[\.,]\d{3})*(?:[\.,]\d{2})?)/;
+            const coincidenciaMonto = texto.match(regexMonto);
+            let monto = 0;
+            
+            if (coincidenciaMonto) {
+                let montoLimpio = coincidenciaMonto[1].replace(/\./g, '').replace(',', '.');
+                monto = parseFloat(montoLimpio);
+            }
+
+            let usuario = "Ambos";
+            if (texto.includes("ceci") || texto.includes("cecilia") || texto.includes("chechu")) {
+                usuario = "Ceci";
+            } else if (texto.includes("nico") || texto.includes("nicolas") || texto.includes("nick")) {
+                usuario = "Nico";
+            }
+
+            let tipo = "expense";
+            if (texto.includes("gane") || texto.includes("sueldo") || texto.includes("ingreso") || texto.includes("me pagaron") || texto.includes("cobre")) {
+                tipo = "income";
+            }
+
+            const fechaObj = new Date();
+            if (texto.includes("ayer")) {
+                fechaObj.setDate(fechaObj.getDate() - 1);
+            }
+            const fechaFormateada = fechaObj.toISOString().split('T')[0];
+
+            let descripcion = textoOriginal;
+            if (coincidenciaMonto) {
+                descripcion = descripcion.replace(coincidenciaMonto[0], '');
+            }
+
+            const removerPalabras = [
+                /ceci/gi, /cecilia/gi, /chechu/gi, /nico/gi, /nicolas/gi, 
+                /ayer/gi, /gastamos/gi, /gasté/gi, /gaste/gi, /compramos/gi, 
+                /pagué/gi, /pague/gi, /en/gi, /para/gi, /el/gi, /la/gi, /los/gi, /de/gi, /un/gi, /una/gi
+            ];
+
+            removerPalabras.forEach(regex => {
+                descripcion = descripcion.replace(regex, '');
+            });
+
+            descripcion = descripcion.replace(/[-:,]/g, '').replace(/\s+/g, ' ').trim();
+            
+            if (descripcion.length > 0) {
+                descripcion = descripcion.charAt(0).toUpperCase() + descripcion.slice(1);
+            } else {
+                descripcion = "Varios";
+            }
+
+            descriptionInput.value = descripcion;
+            amountInput.value = monto > 0 ? monto : '';
+            dateInput.value = fechaFormateada;
+            typeInput.value = tipo;
+            userInput.value = usuario;
+
+            rawTextInput.value = "";
+            alert(`¡Carga rápida procesada! Confirmá los detalles en el formulario superior y guardá.`);
+        }
+    });
+
+    // ==========================================
+    // CONSULTA CON IA (GEMINI)
+    // ==========================================
+    btnAi.addEventListener('click', async () => {
+        const apiKey = localStorage.getItem('gemini_api_key');
+        if (!apiKey) {
+            alert("Por favor, hacé clic en el engranaje ⚙️ arriba a la derecha e ingresá tu API Key.");
+            return;
+        }
+
+        const modoElegido = aiMode.value;
+        let registrosFiltrados = [];
+        let promptContent = "";
+        let descripcionPeriodo = "";
+
+        if (modoElegido === 'range') {
+            const startVal = aiStartMonthInput.value;
+            const endVal = aiEndMonthInput.value;
+
+            if (!startVal || !endVal) {
+                alert("Por favor, completá los meses del rango.");
                 return;
             }
 
-            if (modeSwitch.checked) {
-                // --- MODO MERCADO PAGO OPTIMIZADO ---
-                const lineas = textoOriginal.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-                
-                let transaccionesDetectadas = [];
-                let i = 0;
+            const [startYear, startMonth] = startVal.split('-').map(Number);
+            const [endYear, endMonth] = endVal.split('-').map(Number);
 
-                // Variables de control para armar una transacción por lote
-                let fechaActualStr = hoy.toISOString().split('T')[0];
-                let descripcion = "";
-                let tipo = "expense";
-                let monto = null;
+            const limiteInferior = new Date(startYear, startMonth - 1, 1);
+            const limiteSuperior = new Date(endYear, endMonth, 0, 23, 59, 59);
 
-                const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+            registrosFiltrados = todasLasTransacciones.filter(tx => {
+                const fechaTx = new Date(tx.date + 'T00:00:00');
+                return fechaTx >= limiteInferior && fechaTx <= limiteSuperior;
+            });
 
-                while (i < lineas.length) {
-                    const linea = lineas[i];
+            descripcionPeriodo = `Rango continuo desde ${startVal} hasta ${endVal}`;
 
-                    // 1. Detectar Cambios de Fecha en el lote copiado
-                    if (linea.toLowerCase() === "hoy") {
-                        fechaActualStr = hoy.toISOString().split('T')[0];
-                        i++;
-                        continue;
-                    } else if (linea.toLowerCase() === "ayer") {
-                        const ayer = new Date();
-                        ayer.setDate(ayer.getDate() - 1);
-                        fechaActualStr = ayer.toISOString().split('T')[0];
-                        i++;
-                        continue;
-                    } else {
-                        // Match fechas tipo "15 de julio"
-                        const matchFecha = linea.match(/^(\d+)\s+de\s+([a-z]+)/i);
-                        if (matchFecha) {
-                            const dia = parseInt(matchFecha[1]);
-                            const mesStr = matchFecha[2].toLowerCase();
-                            const numMes = meses.indexOf(mesStr);
-                            if (numMes !== -1) {
-                                const anioParaFecha = hoy.getFullYear();
-                                const fechaTemp = new Date(anioParaFecha, numMes, dia);
-                                fechaActualStr = fechaTemp.toISOString().split('T')[0];
-                            }
-                            i++;
-                            continue;
-                        }
-                    }
+        } else {
+            const monthAVal = aiMonthAInput.value;
+            const monthBVal = aiMonthBInput.value;
 
-                    // 2. Si detectamos un signo de operación solo ("-" o "+")
-                    if (linea === "-" || linea === "+") {
-                        tipo = (linea === "+") ? "income" : "expense";
-                        
-                        // El monto suele estar en la siguiente línea después del signo peso
-                        if (i + 1 < lineas.length && lineas[i + 1] === "$") {
-                            let offset = 2;
-                            let parteEntera = lineas[i + offset] || "";
-                            let parteDecimal = "00";
-
-                            // Mercado Pago a veces separa los decimales con coma en una línea nueva
-                            if (i + offset + 1 < lineas.length && lineas[i + offset + 1].startsWith(",")) {
-                                parteDecimal = lineas[i + offset + 1].replace(",", "").trim();
-                                offset++;
-                            } else if (i + offset + 1 < lineas.length && /^\d{2}$/.test(lineas[i + offset + 1])) {
-                                // Caso donde los decimales vienen solos en la siguiente línea (ej: "84")
-                                parteDecimal = lineas[i + offset + 1].trim();
-                                offset++;
-                            }
-
-                            // Limpiamos los puntos de miles
-                            const valorLimpio = parteEntera.replace(/\./g, "") + "." + parteDecimal;
-                            monto = parseFloat(valorLimpio);
-
-                            // 3. Buscar descripción hacia atrás (el nombre del comercio o persona)
-                            let idxDesc = i - 1;
-                            descripcion = "";
-                            
-                            while (idxDesc >= 0) {
-                                const lAtras = lineas[idxDesc];
-                                // Omitimos palabras clave del diseño de MP para encontrar el nombre real
-                                if (lAtras !== "Dinero disponible" && 
-                                    lAtras !== "Aprobado" && 
-                                    lAtras !== "Compra" && 
-                                    lAtras !== "Transferencia enviada" &&
-                                    lAtras !== "Ingreso de dinero" &&
-                                    lAtras !== "Con transferencia" &&
-                                    !lAtras.match(/^\d{2}:\d{2}$/)) { // Ignorar horas
-                                    
-                                    descripcion = lAtras;
-                                    break;
-                                }
-                                idxDesc--;
-                            }
-
-                            // Si no se encuentra descripción legible
-                            if (!descripcion) {
-                                descripcion = (tipo === "income") ? "Ingreso de dinero" : "Gasto Mercado Pago";
-                            }
-
-                            // Limpiar nombres duplicados consecutivos o textos basura
-                            descripcion = descripcion
-                                .replace(/pagaste a/gi, '')
-                                .trim();
-
-                            if (!isNaN(monto) && monto > 0) {
-                                transaccionesDetectadas.push({
-                                    description: descripcion,
-                                    amount: monto,
-                                    date: fechaActualStr,
-                                    type: tipo,
-                                    user: mpDefaultUser.value
-                                });
-                            }
-
-                            i += offset; // Saltamos las líneas procesadas del bloque de monto
-                        }
-                    }
-                    i++;
-                }
-
-                // 4. Guardar directamente en Firestore todas las detectadas
-                if (transaccionesDetectadas.length > 0) {
-                    let guardados = 0;
-                    for (const tx of transaccionesDetectadas) {
-                        try {
-                            await addDoc(txCollection, {
-                                ...tx,
-                                createdAt: Date.now()
-                            });
-                            guardados++;
-                        } catch (err) {
-                            console.error("Error al guardar transacción:", tx, err);
-                        }
-                    }
-                    rawTextInput.value = "";
-                    alert(`¡Se procesaron e importaron con éxito ${guardados} movimientos a la base de datos!`);
-                } else {
-                    alert("No pudimos extraer transacciones estructuradas de este bloque de texto. Comprobá que incluya los montos y los signos + o -.");
-                }
-
-            } else {
-                // --- MODO TEXTO LIBRE (Carga rápida unificada al formulario) ---
-                let texto = textoOriginal.toLowerCase();
-                const regexMonto = /(?:[\$]?)\s*(\d+(?:[\.,]\d{3})*(?:[\.,]\d{2})?)/;
-                const coincidenciaMonto = texto.match(regexMonto);
-                let monto = 0;
-                
-                if (coincidenciaMonto) {
-                    let montoLimpio = coincidenciaMonto[1].replace(/\./g, '').replace(',', '.');
-                    monto = parseFloat(montoLimpio);
-                }
-
-                let usuario = "Ambos";
-                if (texto.includes("ceci") || texto.includes("cecilia") || texto.includes("chechu")) {
-                    usuario = "Ceci";
-                } else if (texto.includes("nico") || texto.includes("nicolas") || texto.includes("nick")) {
-                    usuario = "Nico";
-                }
-
-                let tipo = "expense";
-                if (texto.includes("gane") || texto.includes("sueldo") || texto.includes("ingreso") || texto.includes("me pagaron") || texto.includes("cobre")) {
-                    tipo = "income";
-                }
-
-                const fechaObj = new Date();
-                if (texto.includes("ayer")) {
-                    fechaObj.setDate(fechaObj.getDate() - 1);
-                }
-                const fechaFormateada = fechaObj.toISOString().split('T')[0];
-
-                let descripcion = textoOriginal;
-                if (coincidenciaMonto) {
-                    descripcion = descripcion.replace(coincidenciaMonto[0], '');
-                }
-
-                const removerPalabras = [
-                    /ceci/gi, /cecilia/gi, /chechu/gi, /nico/gi, /nicolas/gi, 
-                    /ayer/gi, /gastamos/gi, /gasté/gi, /gaste/gi, /compramos/gi, 
-                    /pagué/gi, /pague/gi, /en/gi, /para/gi, /el/gi, /la/gi, /los/gi, /de/gi, /un/gi, /una/gi
-                ];
-
-                removerPalabras.forEach(regex => {
-                    descripcion = descripcion.replace(regex, '');
-                });
-
-                descripcion = descripcion.replace(/[-:,]/g, '').replace(/\s+/g, ' ').trim();
-                
-                if (descripcion.length > 0) {
-                    descripcion = descripcion.charAt(0).toUpperCase() + descripcion.slice(1);
-                } else {
-                    descripcion = "Varios";
-                }
-
-                // Autocompletamos los campos superiores para que los valides antes de enviar
-                descriptionInput.value = descripcion;
-                amountInput.value = monto > 0 ? monto : '';
-                dateInput.value = fechaFormateada;
-                typeInput.value = tipo;
-                userInput.value = usuario;
-
-                rawTextInput.value = "";
-                alert(`¡Carga rápida procesada! Confirmá los detalles en el formulario izquierdo y guardá.`);
+            if (!monthAVal || !monthBVal) {
+                alert("Por favor, completá ambos meses de comparación.");
+                return;
             }
-        });
-    </script>
+
+            registrosFiltrados = todasLasTransacciones.filter(tx => {
+                const anioMesTx = tx.date.substring(0, 7);
+                return anioMesTx === monthAVal || anioMesTx === monthBVal;
+            });
+
+            descripcionPeriodo = `Comparación puntual de dos meses: ${monthAVal} y ${monthBVal}`;
+        }
+
+        if (registrosFiltrados.length === 0) {
+            alert("No se encontraron gastos.");
+            return;
+        }
+
+        btnAi.disabled = true;
+        btnAi.innerText = "Analizando... Espere";
+        aiResponseBox.style.display = 'block';
+        aiResponseBox.innerText = "Enviando datos...";
+
+        try {
+            const datosParaGemini = registrosFiltrados.map(tx => ({
+                fecha: tx.date,
+                descripcion: tx.description,
+                monto: tx.amount,
+                tipo: tx.type,
+                quien: tx.user
+            }));
+
+            promptContent = `
+Actúa como un asesor financiero experto para una pareja llamada Nico y Ceci.
+Analiza los siguientes movimientos financieros.
+
+Modalidad: ${descripcionPeriodo}
+Datos:
+${JSON.stringify(datosParaGemini, null, 2)}
+
+Por favor, responde de manera cálida y estructurada:
+1. **Período analizado:** Detalle de los meses procesados.
+2. **Resumen de salud financiera:** Ingresos vs gastos totales acumulados.
+3. **Análisis detallado / Comparativa:** Evolución o comparación directa de los rubros.
+4. **Los mayores desvíos de dinero:** Categorías más pesadas.
+5. **Plan de acción y ahorro (10%):** Consejos prácticos para Nico y Ceci.
+            `;
+
+            const modelosAIntentar = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
+            let respuestaExitosa = null;
+            let historialErrores = [];
+
+            for (const modelo of modelosAIntentar) {
+                try {
+                    aiResponseBox.innerText = `Invocando ${modelo}...`;
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
+
+                    const response = await fetch(url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: promptContent }] }] })
+                    });
+
+                    if (response.ok) {
+                        respuestaExitosa = await response.json();
+                        break; 
+                    } else {
+                        const errData = await response.json();
+                        historialErrores.push(`${modelo}: ${errData.error?.message || "Error"}`);
+                    }
+                } catch (e) {
+                    historialErrores.push(`${modelo}: ${e.message}`);
+                }
+            }
+
+            if (respuestaExitosa && respuestaExitosa.candidates && respuestaExitosa.candidates[0]?.content?.parts[0]) {
+                aiResponseBox.innerText = respuestaExitosa.candidates[0].content.parts[0].text;
+            } else {
+                throw new Error("Ningún modelo pudo completar la consulta. Detalles:\n" + historialErrores.join('\n'));
+            }
+
+        } catch (error) {
+            console.error(error);
+            aiResponseBox.innerText = `Error: ${error.message}`;
+        } finally {
+            btnAi.disabled = false;
+            btnAi.innerText = "Analizar Gastos con Gemini";
+        }
+    });
+</script>
+
 </body>
 </html>
