@@ -865,7 +865,7 @@
         }
     });
 
-  // ==========================================
+ // ==========================================
     // PROCESAMIENTO UNIFICADO (TEXTO LIBRE / MERCADO PAGO)
     // ==========================================
     btnProcessRaw.addEventListener('click', async () => {
@@ -954,19 +954,29 @@
                                 break;
                             }
 
-                            // Filtros de descarte
+                            // Filtros de descarte de basura del copiado de Mercado Pago
                             const esHora = /^\d{1,2}:\d{2}$/.test(lAtras);
                             const esMontoOSigno = /^[\d\.,\s]+$/.test(lAtras) || lAtras === "$";
-                            const esPalabraBasura = [
-                                "dinero disponible", "aprobado", "compra", "transferencia enviada", 
-                                "ingreso de dinero", "con transferencia", "transferencia recibida", 
-                                "visa crédito", "pago en tienda física", "visa debito", "mastercard"
-                            ].includes(lAtras.toLowerCase());
+                            
+                            const palabrasBasura = [
+                                "dinero disponible", "aprobado", "compra", 
+                                "transferencia enviada", "ingreso de dinero", 
+                                "con transferencia", "transferencia recibida", 
+                                "visa crédito", "pago en tienda física", 
+                                "visa débito", "mastercard", "tarjeta", "débito", "crédito"
+                            ];
+                            const esPalabraBasura = palabrasBasura.includes(lAtras.toLowerCase()) || lAtras === "-";
 
-                            // Si no es basura, ni hora, ni un número/monto anterior: ¡Es nuestra descripción!
+                            // Si no es ninguno de los filtros de descarte, encontramos una línea de texto válida
                             if (!esHora && !esMontoOSigno && !esPalabraBasura) {
-                                descripcionEncontrada = lAtras;
-                                break; // Detenemos la búsqueda inmediatamente al encontrar el primer candidato real
+                                // Mercado Pago suele duplicar el nombre (ej. "Big Pizza\nBig Pizza"). 
+                                // Si la línea de más arriba es idéntica, subimos para tomar esa y evitar duplicados.
+                                if (idxDesc - 1 >= 0 && lineas[idxDesc - 1].trim().toLowerCase() === lAtras.toLowerCase()) {
+                                    descripcionEncontrada = lineas[idxDesc - 1].trim();
+                                } else {
+                                    descripcionEncontrada = lAtras;
+                                }
+                                break; // Ya tenemos el nombre real del comercio o persona
                             }
                             idxDesc--;
                         }
@@ -975,7 +985,7 @@
                             descripcionEncontrada = (tipo === "income") ? "Ingreso de dinero" : "Gasto Mercado Pago";
                         }
 
-                        // Limpieza final de la descripción
+                        // Limpieza final estética de la descripción
                         descripcionEncontrada = descripcionEncontrada
                             .replace(/pagaste a/gi, '')
                             .replace(/transferencia enviada a/gi, '')
