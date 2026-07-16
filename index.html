@@ -192,17 +192,17 @@
         .btn-ai:hover { background-color: #732d91; }
 
         .btn-secondary-ai {
-            background-color: #9b59b6;
+            background-color: #2ecc71;
             color: white;
             border: none;
             border-radius: 6px;
-            padding: 8px 12px;
+            padding: 10px 12px;
             font-weight: bold;
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 1rem;
             transition: background 0.2s;
         }
-        .btn-secondary-ai:hover { background-color: #8e44ad; }
+        .btn-secondary-ai:hover { background-color: #27ae60; }
 
         .ai-response {
             background-color: #f9f5fc;
@@ -308,8 +308,8 @@
         
         /* Contenedor de WhatsApp */
         .whatsapp-fast-card {
-            background-color: #e3f2fd;
-            border-left: 4px solid #1e88e5;
+            background-color: #e8f5e9;
+            border-left: 4px solid #2ecc71;
             padding: 15px;
             border-radius: 12px;
             margin-bottom: 20px;
@@ -373,16 +373,16 @@
     </div>
 
     <div class="whatsapp-fast-card">
-        <h2 style="margin-top: 0; color: #1565c0; font-size: 1.2rem; display: flex; align-items: center; gap: 5px;">
+        <h2 style="margin-top: 0; color: #27ae60; font-size: 1.2rem; display: flex; align-items: center; gap: 5px;">
             💬 Carga Rápida (Estilo WhatsApp)
         </h2>
         <p style="font-size: 0.8rem; color: #546e7a; margin-top: -8px; margin-bottom: 10px;">
-            Pegá el texto que te mandaron y la IA completará el formulario abajo.
+            Pegá el texto que te mandaron. ¡Se procesará al instante de forma local!
         </p>
         <div class="form-group">
             <textarea id="raw-text-input" rows="2" placeholder="Ej: Ceci: 18500 super chino o pagué internet 9200 Nico..."></textarea>
         </div>
-        <button class="btn-secondary-ai" id="btn-process-raw" style="width: 100%;">Interpretar Texto con Gemini ✨</button>
+        <button class="btn-secondary-ai" id="btn-process-raw" style="width: 100%;">Procesar Mensaje Al Instante ⚡</button>
     </div>
 
     <div class="form-card">
@@ -774,107 +774,83 @@
     });
 
     // ==========================================
-    // INTERPRETAR TEXTO ESTILO WHATSAPP CON IA
+    // INTERPRETAR TEXTO ESTILO WHATSAPP (INSTANTÁNEO Y 100% LOCAL)
     // ==========================================
-    btnProcessRaw.addEventListener('click', async () => {
-        const apiKey = localStorage.getItem('gemini_api_key');
-        if (!apiKey) {
-            alert("Por favor, cargá tu API Key en el engranaje ⚙️ para usar la carga rápida.");
-            return;
-        }
-
-        const textoABuscador = rawTextInput.value.trim();
-        if (!textoABuscador) {
+    btnProcessRaw.addEventListener('click', () => {
+        const textoOriginal = rawTextInput.value.trim();
+        if (!textoOriginal) {
             alert("Por favor, escribí o pegá un texto primero.");
             return;
         }
 
-        btnProcessRaw.disabled = true;
-        btnProcessRaw.innerText = "Pensando...";
+        let texto = textoOriginal.toLowerCase();
 
-        // Obtenemos la fecha actual en formato local
-        const hoyIso = new Date().toISOString().split('T')[0];
-
-        // Prompt de extracción inteligente y JSON exacto
-        const parserPrompt = `
-Sos un parser estricto de texto financiero en español. Tu única misión es extraer información de un mensaje informal de WhatsApp para cargarlo en un formulario.
-Analiza la siguiente frase y estructurá la salida estrictamente en un formato JSON plano, sin usar formato Markdown para el JSON, sin bloques de código, sin comentarios.
-
-Texto a analizar: "${textoABuscador}"
-Fecha de hoy (para referencia si el texto menciona "hoy", "ayer" o nada): "${hoyIso}"
-
-Reglas para asignar los campos en el JSON:
-1. "description": Debe ser una descripción corta y limpia (capitalizada, ej. "Supermercado Chino", "Nafta", "Cena").
-2. "amount": Un número decimal con el monto detectado.
-3. "date": En formato "YYYY-MM-DD". Si el texto no da indicios de otra fecha, usá la fecha de hoy. Si dice "ayer", restale un día a hoy.
-4. "type": Debe ser estrictamente el texto "expense" (para egresos/gastos) o "income" (para ingresos). Asumí siempre "expense" a menos que diga explícitamente palabras como "gané", "cargué sueldo", "ingreso", "me pagaron".
-5. "user": Debe ser estrictamente "Nico", "Ceci" o "Ambos". 
-   - Si el texto tiene nombres o apodos similares a Nico (Nicolas, Nick) poné "Nico". 
-   - Si tiene nombres similares a Ceci (Cecilia, Cece, Chechu) poné "Ceci". 
-   - Si dice "gastamos", "compramos para casa" o menciona a los dos, poné "Ambos".
-   - Si no se especifica quién fue, por defecto poné "Ambos".
-
-La respuesta debe ser UNICAMENTE el objeto JSON de esta estructura:
-{
-  "description": "...",
-  "amount": 1234.50,
-  "date": "YYYY-MM-DD",
-  "type": "expense",
-  "user": "..."
-}
-`;
-
-        const modelosAIntentar = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
-        let respuestaExitosa = null;
-
-        for (const modelo of modelosAIntentar) {
-            try {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
-                const response = await fetch(url, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: parserPrompt }] }]
-                    })
-                });
-
-                if (response.ok) {
-                    respuestaExitosa = await response.json();
-                    break;
-                }
-            } catch (e) {
-                console.warn(`Error con ${modelo} interpretando WhatsApp.`);
-            }
+        // 1. EXTRAER EL MONTO (Busca números, permitiendo puntos o comas de miles)
+        const regexMonto = /(?:[\$]?)\s*(\d+(?:[\.,]\d{3})*(?:[\.,]\d{2})?)/;
+        const coincidenciaMonto = texto.match(regexMonto);
+        let monto = 0;
+        
+        if (coincidenciaMonto) {
+            let montoLimpio = coincidenciaMonto[1].replace(/\./g, '').replace(',', '.');
+            monto = parseFloat(montoLimpio);
         }
 
-        if (respuestaExitosa && respuestaExitosa.candidates && respuestaExitosa.candidates[0]?.content?.parts[0]) {
-            let textoJson = respuestaExitosa.candidates[0].content.parts[0].text.trim();
-            // Limpieza básica por si el modelo ignora la instrucción de no mandar markdown
-            textoJson = textoJson.replace(/```json/g, '').replace(/```/g, '').trim();
+        // 2. DETECTAR EL RESPONSABLE
+        let usuario = "Ambos"; // Por defecto
+        if (texto.includes("ceci") || texto.includes("cecilia") || texto.includes("chechu")) {
+            usuario = "Ceci";
+        } else if (texto.includes("nico") || texto.includes("nicolas") || texto.includes("nick")) {
+            usuario = "Nico";
+        } else if (texto.includes("ambos") || texto.includes("gastamos") || texto.includes("compramos") || texto.includes("casa")) {
+            usuario = "Ambos";
+        }
 
-            try {
-                const resultado = JSON.parse(textoJson);
-                
-                // Autocompletamos el formulario del DOM con el análisis
-                descriptionInput.value = resultado.description;
-                amountInput.value = resultado.amount;
-                dateInput.value = resultado.date;
-                typeInput.value = resultado.type;
-                userInput.value = resultado.user;
+        // 3. DETECTAR EL TIPO (Ingreso o Gasto)
+        let tipo = "expense";
+        if (texto.includes("gane") || texto.includes("sueldo") || texto.includes("ingreso") || texto.includes("me pagaron") || texto.includes("cobre")) {
+            tipo = "income";
+        }
 
-                // Limpiamos el WhatsApp Input y damos aviso amigable
-                rawTextInput.value = "";
-                alert("✨ ¡Datos interpretados! Revisalos en el formulario de abajo y hacé clic en 'Guardar Registro'.");
-            } catch (jsonErr) {
-                console.error("Error procesando respuesta JSON de la IA:", textoJson);
-                alert("La IA devolvió datos en un formato inesperado. Por favor, cargalo de forma manual.");
-            }
+        // 4. DETECTAR LA FECHA (Por defecto hoy, ayer resta 1 día)
+        const fechaObj = new Date();
+        if (texto.includes("ayer")) {
+            fechaObj.setDate(fechaObj.getDate() - 1);
+        }
+        const fechaFormateada = fechaObj.toISOString().split('T')[0];
+
+        // 5. EXTRAER LA DESCRIPCIÓN (Limpieza de texto)
+        let descripcion = textoOriginal;
+        
+        if (coincidenciaMonto) {
+            descripcion = descripcion.replace(coincidenciaMonto[0], '');
+        }
+
+        const removerPalabras = [
+            /ceci/gi, /cecilia/gi, /chechu/gi, /nico/gi, /nicolas/gi, 
+            /ayer/gi, /gastamos/gi, /gasté/gi, /gaste/gi, /compramos/gi, 
+            /pagué/gi, /pague/gi, /en/gi, /para/gi, /el/gi, /la/gi, /los/gi, /de/gi, /un/gi, /una/gi
+        ];
+
+        removerPalabras.forEach(regex => {
+            descripcion = descripcion.replace(regex, '');
+        });
+
+        descripcion = descripcion.replace(/[-:,]/g, '').replace(/\s+/g, ' ').trim();
+        
+        if (descripcion.length > 0) {
+            descripcion = descripcion.charAt(0).toUpperCase() + descripcion.slice(1);
         } else {
-            alert("No se pudo conectar con la IA en este momento. Intentá de nuevo.");
+            descripcion = "Varios";
         }
 
-        btnProcessRaw.disabled = false;
-        btnProcessRaw.innerText = "Interpretar Texto con Gemini ✨";
+        // 6. AUTOCOMPLETAR FORMULARIO AL INSTANTE
+        descriptionInput.value = descripcion;
+        amountInput.value = monto > 0 ? monto : '';
+        dateInput.value = fechaFormateada;
+        typeInput.value = tipo;
+        userInput.value = usuario;
+
+        rawTextInput.value = "";
     });
 
     // =========================================================
