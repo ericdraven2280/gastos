@@ -365,26 +365,6 @@
         </div>
     </div>
 
-    <div class="chart-card" id="chart-card-box">
-        <h2>📊 Distribución de Egresos</h2>
-        <div class="chart-container">
-            <canvas id="expenses-chart"></canvas>
-        </div>
-    </div>
-
-    <div class="whatsapp-fast-card">
-        <h2 style="margin-top: 0; color: #27ae60; font-size: 1.2rem; display: flex; align-items: center; gap: 5px;">
-            💬 Carga Rápida (Estilo WhatsApp)
-        </h2>
-        <p style="font-size: 0.8rem; color: #546e7a; margin-top: -8px; margin-bottom: 10px;">
-            Pegá el texto que te mandaron. ¡Se procesará al instante de forma local!
-        </p>
-        <div class="form-group">
-            <textarea id="raw-text-input" rows="2" placeholder="Ej: Ceci: 18500 super chino o pagué internet 9200 Nico..."></textarea>
-        </div>
-        <button class="btn-secondary-ai" id="btn-process-raw" style="width: 100%;">Procesar Mensaje Al Instante ⚡</button>
-    </div>
-
     <div class="form-card">
         <h2>Añadir Transacción</h2>
         <form id="tx-form">
@@ -423,10 +403,30 @@
         </form>
     </div>
 
+    <div class="whatsapp-fast-card">
+        <h2 style="margin-top: 0; color: #27ae60; font-size: 1.2rem; display: flex; align-items: center; gap: 5px;">
+            💬 Carga Rápida (Estilo WhatsApp)
+        </h2>
+        <p style="font-size: 0.8rem; color: #546e7a; margin-top: -8px; margin-bottom: 10px;">
+            Pegá el texto que te mandaron. ¡Se procesará al instante de forma local!
+        </p>
+        <div class="form-group">
+            <textarea id="raw-text-input" rows="2" placeholder="Ej: Ceci: 18500 super chino o pagué internet 9200 Nico..."></textarea>
+        </div>
+        <button class="btn-secondary-ai" id="btn-process-raw" style="width: 100%;">Procesar Mensaje Al Instante ⚡</button>
+    </div>
+
     <div class="history-card">
         <h2>Historial de Movimientos</h2>
         <ul id="tx-list" class="list">
             </ul>
+    </div>
+
+    <div class="chart-card" id="chart-card-box">
+        <h2>📊 Distribución de Egresos</h2>
+        <div class="chart-container">
+            <canvas id="expenses-chart"></canvas>
+        </div>
     </div>
 
     <div class="ai-card">
