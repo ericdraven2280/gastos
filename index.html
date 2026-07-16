@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control de Gastos en Pareja</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --bg-color: #f4f7f6;
@@ -54,14 +55,12 @@
             margin-top: 0;
         }
 
-        .balance-card {
+        .balance-card, .form-card, .ai-card, .history-card, .chart-card {
             background: var(--card-bg);
             padding: 20px;
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            text-align: center;
             margin-bottom: 20px;
-            position: relative;
         }
 
         .user-header {
@@ -138,14 +137,6 @@
         .stat.inc { background-color: var(--income); }
         .stat.exp { background-color: var(--expense); }
 
-        .form-card, .ai-card {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-
         .form-group {
             margin-bottom: 15px;
         }
@@ -156,13 +147,18 @@
             font-weight: 600;
         }
 
-        input, select {
+        input, select, textarea {
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 6px;
             box-sizing: border-box;
             font-size: 1rem;
+        }
+
+        textarea {
+            resize: vertical;
+            font-family: inherit;
         }
 
         .btn-primary {
@@ -195,6 +191,19 @@
         }
         .btn-ai:hover { background-color: #732d91; }
 
+        .btn-secondary-ai {
+            background-color: #9b59b6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        .btn-secondary-ai:hover { background-color: #8e44ad; }
+
         .ai-response {
             background-color: #f9f5fc;
             border-left: 4px solid var(--ai-color);
@@ -226,18 +235,10 @@
         .google-btn:hover { background-color: #fafafa; }
         .google-btn img { width: 20px; margin-right: 10px; }
 
-        .history-card {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-
         .list {
             list-style-type: none;
             padding: 0;
-            max-height: 350px;
+            max-height: 250px;
             overflow-y: auto;
         }
 
@@ -296,6 +297,24 @@
             font-size: 0.8rem;
             color: #555;
         }
+
+        /* Contenedor del Gráfico */
+        .chart-container {
+            position: relative;
+            margin: auto;
+            height: 220px;
+            width: 220px;
+        }
+        
+        /* Contenedor de WhatsApp */
+        .whatsapp-fast-card {
+            background-color: #e3f2fd;
+            border-left: 4px solid #1e88e5;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
     </style>
 </head>
 <body>
@@ -344,6 +363,26 @@
             <div class="stat inc">Ingresos: <span id="total-income">$0</span></div>
             <div class="stat exp">Gastos: <span id="total-expenses">$0</span></div>
         </div>
+    </div>
+
+    <div class="chart-card" id="chart-card-box">
+        <h2>📊 Distribución de Egresos</h2>
+        <div class="chart-container">
+            <canvas id="expenses-chart"></canvas>
+        </div>
+    </div>
+
+    <div class="whatsapp-fast-card">
+        <h2 style="margin-top: 0; color: #1565c0; font-size: 1.2rem; display: flex; align-items: center; gap: 5px;">
+            💬 Carga Rápida (Estilo WhatsApp)
+        </h2>
+        <p style="font-size: 0.8rem; color: #546e7a; margin-top: -8px; margin-bottom: 10px;">
+            Pegá el texto que te mandaron y la IA completará el formulario abajo.
+        </p>
+        <div class="form-group">
+            <textarea id="raw-text-input" rows="2" placeholder="Ej: Ceci: 18500 super chino o pagué internet 9200 Nico..."></textarea>
+        </div>
+        <button class="btn-secondary-ai" id="btn-process-raw" style="width: 100%;">Interpretar Texto con Gemini ✨</button>
     </div>
 
     <div class="form-card">
@@ -489,8 +528,13 @@
     const aiMonthAInput = document.getElementById('ai-month-a');
     const aiMonthBInput = document.getElementById('ai-month-b');
 
+    // Elementos Carga Rápida WhatsApp
+    const rawTextInput = document.getElementById('raw-text-input');
+    const btnProcessRaw = document.getElementById('btn-process-raw');
+
     let unsubscribeSnapshot = null;
     let todasLasTransacciones = [];
+    let myChart = null; // Instancia global de Chart.js
 
     // Configurar fechas de hoy por defecto
     const hoy = new Date();
@@ -591,6 +635,9 @@
         txList.innerHTML = '';
         let income = 0;
         let expenses = 0;
+        
+        // Estructura para acumular gastos del gráfico
+        const distribucionGastos = {};
 
         todasLasTransacciones.forEach((tx) => {
             const [anioTx, mesTx, diaTx] = tx.date.split('-');
@@ -599,8 +646,15 @@
                 const sign = tx.type === 'income' ? '+' : '-';
                 const itemClass = tx.type === 'income' ? 'amt-inc' : 'amt-exp';
                 
-                if (tx.type === 'income') income += tx.amount;
-                else expenses += tx.amount;
+                if (tx.type === 'income') {
+                    income += tx.amount;
+                } else {
+                    expenses += tx.amount;
+                    // Agrupar descripciones similares en minúsculas para el gráfico
+                    const descSimplificada = tx.description.trim().toLowerCase();
+                    const descCapitalizada = descSimplificada.charAt(0).toUpperCase() + descSimplificada.slice(1);
+                    distribucionGastos[descCapitalizada] = (distribucionGastos[descCapitalizada] || 0) + tx.amount;
+                }
 
                 const fechaFormateada = `${diaTx}/${mesTx}`;
 
@@ -625,6 +679,64 @@
         incomeEl.innerText = `$${income.toFixed(2)}`;
         expensesEl.innerText = `$${expenses.toFixed(2)}`;
         balanceEl.style.color = totalBalance >= 0 ? '#2ecc71' : '#e74c3c';
+
+        // Actualizar el gráfico
+        actualizarGrafico(distribucionGastos);
+    }
+
+    // ==========================================
+    // FUNCIÓN PARA RENDERIZAR / ACTUALIZAR EL GRÁFICO
+    // ==========================================
+    function actualizarGrafico(datosEgresos) {
+        const etiquetas = Object.keys(datosEgresos);
+        const valores = Object.values(datosEgresos);
+        const chartCard = document.getElementById('chart-card-box');
+
+        // Si no hay gastos en el mes, ocultamos el card para no ocupar espacio
+        if (etiquetas.length === 0) {
+            chartCard.style.display = 'none';
+            return;
+        }
+        
+        chartCard.style.display = 'block';
+
+        const ctx = document.getElementById('expenses-chart').getContext('2d');
+
+        // Si ya hay un gráfico, lo destruimos para poder pintarlo de nuevo
+        if (myChart) {
+            myChart.destroy();
+        }
+
+        myChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: etiquetas,
+                datasets: [{
+                    data: valores,
+                    backgroundColor: [
+                        '#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', 
+                        '#1abc9c', '#e67e22', '#34495e', '#e84393', '#fdcb6e'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false // Ocultamos leyenda para que sea minimalista en mobile
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ` ${context.label}: $${context.raw.toFixed(2)}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     filterMonth.addEventListener('change', renderizarYFiltrar);
@@ -659,6 +771,110 @@
                 catch (error) { console.error(error); }
             }
         }
+    });
+
+    // ==========================================
+    // INTERPRETAR TEXTO ESTILO WHATSAPP CON IA
+    // ==========================================
+    btnProcessRaw.addEventListener('click', async () => {
+        const apiKey = localStorage.getItem('gemini_api_key');
+        if (!apiKey) {
+            alert("Por favor, cargá tu API Key en el engranaje ⚙️ para usar la carga rápida.");
+            return;
+        }
+
+        const textoABuscador = rawTextInput.value.trim();
+        if (!textoABuscador) {
+            alert("Por favor, escribí o pegá un texto primero.");
+            return;
+        }
+
+        btnProcessRaw.disabled = true;
+        btnProcessRaw.innerText = "Pensando...";
+
+        // Obtenemos la fecha actual en formato local
+        const hoyIso = new Date().toISOString().split('T')[0];
+
+        // Prompt de extracción inteligente y JSON exacto
+        const parserPrompt = `
+Sos un parser estricto de texto financiero en español. Tu única misión es extraer información de un mensaje informal de WhatsApp para cargarlo en un formulario.
+Analiza la siguiente frase y estructurá la salida estrictamente en un formato JSON plano, sin usar formato Markdown para el JSON, sin bloques de código, sin comentarios.
+
+Texto a analizar: "${textoABuscador}"
+Fecha de hoy (para referencia si el texto menciona "hoy", "ayer" o nada): "${hoyIso}"
+
+Reglas para asignar los campos en el JSON:
+1. "description": Debe ser una descripción corta y limpia (capitalizada, ej. "Supermercado Chino", "Nafta", "Cena").
+2. "amount": Un número decimal con el monto detectado.
+3. "date": En formato "YYYY-MM-DD". Si el texto no da indicios de otra fecha, usá la fecha de hoy. Si dice "ayer", restale un día a hoy.
+4. "type": Debe ser estrictamente el texto "expense" (para egresos/gastos) o "income" (para ingresos). Asumí siempre "expense" a menos que diga explícitamente palabras como "gané", "cargué sueldo", "ingreso", "me pagaron".
+5. "user": Debe ser estrictamente "Nico", "Ceci" o "Ambos". 
+   - Si el texto tiene nombres o apodos similares a Nico (Nicolas, Nick) poné "Nico". 
+   - Si tiene nombres similares a Ceci (Cecilia, Cece, Chechu) poné "Ceci". 
+   - Si dice "gastamos", "compramos para casa" o menciona a los dos, poné "Ambos".
+   - Si no se especifica quién fue, por defecto poné "Ambos".
+
+La respuesta debe ser UNICAMENTE el objeto JSON de esta estructura:
+{
+  "description": "...",
+  "amount": 1234.50,
+  "date": "YYYY-MM-DD",
+  "type": "expense",
+  "user": "..."
+}
+`;
+
+        const modelosAIntentar = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
+        let respuestaExitosa = null;
+
+        for (const modelo of modelosAIntentar) {
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: parserPrompt }] }]
+                    })
+                });
+
+                if (response.ok) {
+                    respuestaExitosa = await response.json();
+                    break;
+                }
+            } catch (e) {
+                console.warn(`Error con ${modelo} interpretando WhatsApp.`);
+            }
+        }
+
+        if (respuestaExitosa && respuestaExitosa.candidates && respuestaExitosa.candidates[0]?.content?.parts[0]) {
+            let textoJson = respuestaExitosa.candidates[0].content.parts[0].text.trim();
+            // Limpieza básica por si el modelo ignora la instrucción de no mandar markdown
+            textoJson = textoJson.replace(/```json/g, '').replace(/```/g, '').trim();
+
+            try {
+                const resultado = JSON.parse(textoJson);
+                
+                // Autocompletamos el formulario del DOM con el análisis
+                descriptionInput.value = resultado.description;
+                amountInput.value = resultado.amount;
+                dateInput.value = resultado.date;
+                typeInput.value = resultado.type;
+                userInput.value = resultado.user;
+
+                // Limpiamos el WhatsApp Input y damos aviso amigable
+                rawTextInput.value = "";
+                alert("✨ ¡Datos interpretados! Revisalos en el formulario de abajo y hacé clic en 'Guardar Registro'.");
+            } catch (jsonErr) {
+                console.error("Error procesando respuesta JSON de la IA:", textoJson);
+                alert("La IA devolvió datos en un formato inesperado. Por favor, cargalo de forma manual.");
+            }
+        } else {
+            alert("No se pudo conectar con la IA en este momento. Intentá de nuevo.");
+        }
+
+        btnProcessRaw.disabled = false;
+        btnProcessRaw.innerText = "Interpretar Texto con Gemini ✨";
     });
 
     // =========================================================
@@ -734,7 +950,6 @@
                 quien: tx.user
             }));
 
-            // El prompt se adapta al tipo de visualización seleccionada
             promptContent = `
 Actúa como un asesor financiero experto, cálido y analítico para una pareja llamada Nico y Ceci. 
 Analiza los siguientes movimientos financieros según la modalidad seleccionada.
@@ -753,7 +968,6 @@ Por favor, estructura tu respuesta de la siguiente forma utilizando viñetas y t
 5. **Plan de acción y plan de ahorro (10%):** Recomendaciones hiper-concretas y viables para reducir gastos sin perder calidad de vida, adaptadas a Nico y Ceci.
             `;
 
-            // Modelos 100% activos y soportados en la API actual
             const modelosAIntentar = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
             let respuestaExitosa = null;
             let historialErrores = [];
@@ -778,11 +992,9 @@ Por favor, estructura tu respuesta de la siguiente forma utilizando viñetas y t
                         const errData = await response.json();
                         const msg = errData.error ? errData.error.message : "Error desconocido";
                         historialErrores.push(`${modelo}: ${msg}`);
-                        console.warn(`Modelo ${modelo} falló: ${msg}. Probando el siguiente...`);
                     }
                 } catch (e) {
                     historialErrores.push(`${modelo}: ${e.message}`);
-                    console.warn(`Error de conexión con ${modelo}: ${e.message}. Probando el siguiente...`);
                 }
             }
 
