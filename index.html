@@ -865,7 +865,7 @@
         }
     });
 
-   // ==========================================
+  // ==========================================
     // PROCESAMIENTO UNIFICADO (TEXTO LIBRE / MERCADO PAGO)
     // ==========================================
     btnProcessRaw.addEventListener('click', async () => {
@@ -942,10 +942,9 @@
                         const valorLimpio = parteEntera.replace(/\./g, "") + "." + parteDecimal;
                         const monto = parseFloat(valorLimpio);
 
-                        // 3. Buscar descripción real hacia atrás (recorriendo en reversa desde el signo "-" o "+")
+                        // 3. Buscar descripción real hacia atrás (recorriendo en reversa)
                         let idxDesc = i - 1;
                         let descripcionEncontrada = "";
-                        let candidatos = [];
 
                         while (idxDesc >= 0) {
                             const lAtras = lineas[idxDesc].trim();
@@ -955,26 +954,21 @@
                                 break;
                             }
 
-                            // Ignorar palabras del diseño de MP, horas sueltas, tarjetas y estados
+                            // Filtros de descarte
                             const esHora = /^\d{1,2}:\d{2}$/.test(lAtras);
+                            const esMontoOSigno = /^[\d\.,\s]+$/.test(lAtras) || lAtras === "$";
                             const esPalabraBasura = [
                                 "dinero disponible", "aprobado", "compra", "transferencia enviada", 
                                 "ingreso de dinero", "con transferencia", "transferencia recibida", 
                                 "visa crédito", "pago en tienda física", "visa debito", "mastercard"
                             ].includes(lAtras.toLowerCase());
 
-                            if (!esHora && !esPalabraBasura) {
-                                // Evitamos duplicar candidatos consecutivos (como "Mecubro" / "Mecubro")
-                                if (candidatos.length === 0 || candidatos[candidatos.length - 1] !== lAtras) {
-                                    candidatos.push(lAtras);
-                                }
+                            // Si no es basura, ni hora, ni un número/monto anterior: ¡Es nuestra descripción!
+                            if (!esHora && !esMontoOSigno && !esPalabraBasura) {
+                                descripcionEncontrada = lAtras;
+                                break; // Detenemos la búsqueda inmediatamente al encontrar el primer candidato real
                             }
                             idxDesc--;
-                        }
-
-                        // Tomamos el candidato más antiguo del bloque (el de más arriba, que es el nombre)
-                        if (candidatos.length > 0) {
-                            descripcionEncontrada = candidatos[candidatos.length - 1];
                         }
 
                         if (!descripcionEncontrada) {
