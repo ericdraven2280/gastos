@@ -374,6 +374,25 @@
         input:checked + .slider:before {
             transform: translateX(24px);
         }
+
+        .drilldown-box {
+            margin-top: 15px;
+            padding: 12px;
+            background-color: #f8f9fa;
+            border: 1px dashed #ccc;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .drilldown-title {
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 4px;
+        }
     </style>
 </head>
 <body>
@@ -507,6 +526,10 @@
         <div class="chart-container" id="canvas-container" style="display: none;">
             <canvas id="expenses-chart"></canvas>
         </div>
+        <div class="drilldown-box" id="drilldown-container">
+            <div class="drilldown-title" id="drilldown-title">Gastos en Categoría</div>
+            <ul id="drilldown-list" class="list" style="max-height: 180px;"></ul>
+        </div>
     </div>
 
     <div class="ai-card">
@@ -617,10 +640,14 @@
 
     const btnRenderChart = document.getElementById('btn-render-chart');
     const canvasContainer = document.getElementById('canvas-container');
+    const drilldownContainer = document.getElementById('drilldown-container');
+    const drilldownTitle = document.getElementById('drilldown-title');
+    const drilldownList = document.getElementById('drilldown-list');
 
     let unsubscribeSnapshot = null;
     let todasLasTransacciones = [];
     let myChart = null; 
+    let asignacionesGastosLocales = {};
 
     const hoy = new Date();
     const anioActual = hoy.getFullYear();
@@ -771,6 +798,7 @@
         balanceEl.style.color = totalBalance >= 0 ? '#2ecc71' : '#e74c3c';
 
         canvasContainer.style.display = 'none';
+        drilldownContainer.style.display = 'none';
         btnRenderChart.style.display = 'block';
         btnRenderChart.innerText = "Ver Gráfico Agrupado con IA 🤖";
         btnRenderChart.disabled = false;
@@ -839,6 +867,47 @@
             });
         }
 
+        asignacionesGastosLocales = {};
+        for (const categoria in datosAgrupados) {
+            asignacionesGastosLocales[categoria] = [];
+        }
+
+        const promptMapeoCompleto = `
+            Teniendo en cuenta estas categorías exactas creadas: ${JSON.stringify(Object.keys(datosAgrupados))}.
+            Asigna cada uno de los siguientes elementos a una de esas categorías.
+            Gastos: ${JSON.stringify(listadoGastos)}
+            Devuelve un array JSON de objetos, respetando las mayúsculas/minúsculas de las categorías. Cada objeto debe tener la "descripcion", el "monto" y la "categoria" asignada. Sin markdown, solo el JSON plano.
+        `;
+
+        for (const modelo of modelosAIntentar) {
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        contents: [{ parts: [{ text: promptMapeoCompleto }] }],
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
+                if (response.ok) {
+                    const resJson = await response.json();
+                    const mapeoItems = JSON.parse(resJson.candidates[0].content.parts[0].text.trim());
+                    mapeoItems.forEach(item => {
+                        if (asignacionesGastosLocales[item.categoria]) {
+                            asignacionesGastosLocales[item.categoria].push(item);
+                        } else {
+                            const claveCercana = Object.keys(asignacionesGastosLocales).find(k => k.toLowerCase() === String(item.categoria).toLowerCase());
+                            if (claveCercana) asignacionesGastosLocales[claveCercana].push(item);
+                        }
+                    });
+                    break;
+                }
+            } catch (e) {
+                console.warn("Error mapeando ítems sueltos con " + modelo);
+            }
+        }
+
         const etiquetas = Object.keys(datosAgrupados);
         const valores = Object.values(datosAgrupados);
 
@@ -861,6 +930,13 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                onClick: (evt, element) => {
+                    if (element && element.length > 0) {
+                        const index = element[0].index;
+                        const categoriaSeleccionada = etiquetas[index];
+                        mostrarDetalleCategoria(categoriaSeleccionada);
+                    }
+                },
                 plugins: {
                     legend: { 
                         display: true,
@@ -879,6 +955,40 @@
                 }
             }
         });
+    }
+
+    function mostrarDetalleCategoria(categoria) {
+        drilldownTitle.innerText = `Gastos incluidos en: "${categoria}"`;
+        drilldownList.innerHTML = '';
+        
+        let items = asignacionesGastosLocales[categoria] || [];
+        
+        if (items.length === 0) {
+            const listaGastosMes = todasLasTransacciones
+                .filter(tx => {
+                    const [anioTx, mesTx] = tx.date.split('-');
+                    return anioTx === filterYear.value && mesTx === filterMonth.value && tx.type === 'expense';
+                });
+            
+            items = listaGastosMes.filter(tx => tx.description.toLowerCase().includes(categoria.toLowerCase()) || categoria.toLowerCase().includes(tx.description.toLowerCase()))
+                .map(tx => ({ descripcion: tx.description, monto: tx.amount }));
+        }
+
+        if (items.length === 0) {
+            drilldownList.innerHTML = '<li class="list-item" style="color: #7f8c8d;">No se pudieron indexar los detalles individuales para este rubro.</li>';
+        } else {
+            items.forEach(it => {
+                const li = document.createElement('li');
+                li.classList.add('list-item');
+                li.style.padding = '6px 10px';
+                li.innerHTML = `
+                    <span>${it.descripcion}</span>
+                    <span class="amt-exp">$${it.monto.toFixed(2)}</span>
+                `;
+                drilldownList.appendChild(li);
+            });
+        }
+        drilldownContainer.style.display = 'block';
     }
 
     btnRenderChart.addEventListener('click', async () => {
@@ -1230,7 +1340,7 @@ Modalidad: ${descripcionPeriodo}
 Datos:
 ${JSON.stringify(datosParaGemini, null, 2)}
 
-Por favor, responde de manera cálida y estructurada:
+Por favor, responde de manera cálida and estructurada:
 1. **Período analizado:** Detalle de los meses procesados.
 2. **Resumen de salud financiera:** Ingresos vs gastos totales acumulados.
 3. **Análisis detallado / Comparativa:** Evolución o comparación directa de los rubros.
