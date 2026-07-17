@@ -1067,10 +1067,10 @@ btnProcessRaw.addEventListener('click', async () => {
         }
 
         const removerPalabras = [
-            /ceci/gi, /cecilia/gi, /chechu/gi, /nico/gi, /nicolas/gi, /ayer/gi,
-            /gastamos/gi, /gasté/gi, /gaste/gi, /compramos/gi, /pagué/gi, /pague/gi,
-            /en/gi, /para/gi, /el/gi, /la/gi, /los/gi, /de/gi, /un/gi, /una/gi
-        ];
+    /\bceci\b/gi, /\bcecilia\b/gi, /\bchechu\b/gi, /\bnico\b/gi, /\bnicolas\b/gi, /\bayer\b/gi,
+    /\bgastamos\b/gi, /\bgasté\b/gi, /\bgaste\b/gi, /\bcompramos\b/gi, /\bpagué\b/gi, /\bpague\b/gi,
+    /\ben\b/gi, /\bpara\b/gi, /\bel\b/gi, /\bla\b/gi, /\blos\b/gi, /\bde\b/gi, /\bun\b/gi, /\buna\b/gi
+];
         removerPalabras.forEach(regex => {
             descripcion = descripcion.replace(regex, '');
         });
