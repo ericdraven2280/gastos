@@ -824,6 +824,10 @@
             Actúa como un extractor de datos financieros. Te voy a dar una lista de gastos de una pareja (Nico y Ceci).
             Tu única tarea es agruparlos en un máximo de 6 categorías globales, lógicas y limpias (por ejemplo: "Supermercado y Comida", "Salud", "Servicios y Hogar", "Transporte y Auto", "Salidas y Ocio", "Varios").
             Identifica marcas comunes de Argentina (ej: Grido es heladería/ocio, Coto/Chino es supermercado).
+            
+            CRITERIO CRUCIAL DE ALMACÉN / CONSUMO DIARIO: 
+            Cualquier gasto relacionado con suavizante, lavandina, artículos de limpieza, perfumería, pañales o pañaleras DEBE clasificarse obligatoriamente dentro de "Supermercado y Comida", ya que corresponden a la canasta básica de consumo del hogar y no a "Servicios y Hogar" (que es para luz, gas, internet) ni a "Varios".
+            
             Suma los montos de los gastos que correspondan a la misma categoría.
 
             Lista de gastos raw:
@@ -874,7 +878,7 @@
 
         const promptMapeoCompleto = `
             Teniendo en cuenta estas categorías exactas creadas: ${JSON.stringify(Object.keys(datosAgrupados))}.
-            Asigna cada uno de los siguientes elementos a una de esas categorías.
+            Asigna cada uno de los siguientes elementos a una de esas categorías aplicando estrictamente el mismo criterio (suavizantes, limpieza, pañales van a "Supermercado y Comida").
             Gastos: ${JSON.stringify(listadoGastos)}
             Devuelve un array JSON de objetos, respetando las mayúsculas/minúsculas de las categorías. Cada objeto debe tener la "descripcion", el "monto" y la "categoria" asignada. Sin markdown, solo el JSON plano.
         `;
@@ -1144,7 +1148,7 @@
 
                             if (!esHora && !esMontoOSigno && !esPalabraBasura) {
                                 if (idxDesc - 1 >= 0 && lineas[idxDesc - 1].trim().toLowerCase() === lAtras.toLowerCase()) {
-                                    descripcionEncontrada = lineas[idxDesc - 1].trim();
+                                    descripcionEnracada = lineas[idxDesc - 1].trim();
                                 } else {
                                     descripcionEncontrada = lAtras;
                                 }
@@ -1340,7 +1344,7 @@ Modalidad: ${descripcionPeriodo}
 Datos:
 ${JSON.stringify(datosParaGemini, null, 2)}
 
-Por favor, responde de manera cálida and estructurada:
+Por favor, responde de manera cálida y estructurada:
 1. **Período analizado:** Detalle de los meses procesados.
 2. **Resumen de salud financiera:** Ingresos vs gastos totales acumulados.
 3. **Análisis detallado / Comparativa:** Evolución o comparación directa de los rubros.
