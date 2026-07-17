@@ -36,10 +36,9 @@
         .container {
             width: 100%;
             max-width: 600px;
-            display: none; /* Se muestra solo al iniciar sesión */
+            display: none;
         }
 
-        /* Pantalla de Login */
         .login-card {
             background: var(--card-bg);
             padding: 40px 20px;
@@ -96,7 +95,6 @@
             padding: 5px;
         }
 
-        /* Selector de Período */
         .period-selector {
             display: flex;
             justify-content: center;
@@ -216,7 +214,6 @@
             display: none;
         }
 
-        /* Botón de Google */
         .google-btn {
             display: inline-flex;
             align-items: center;
@@ -299,15 +296,14 @@
             color: #555;
         }
 
-        /* Contenedor del Gráfico */
         .chart-container {
             position: relative;
             margin: auto;
-            height: 220px;
-            width: 220px;
+            height: 240px;
+            width: 100%;
+            max-width: 280px;
         }
         
-        /* Contenedor de Carga Rápida */
         .fast-input-card {
             background-color: #f1f8ff;
             border-left: 4px solid var(--primary);
@@ -323,7 +319,6 @@
             border-left-color: var(--mp-color);
         }
 
-        /* Switch UI */
         .switch-container {
             display: flex;
             align-items: center;
@@ -417,8 +412,7 @@
                 <option value="11">Noviembre</option>
                 <option value="12">Diciembre</option>
             </select>
-            <select id="filter-year">
-                </select>
+            <select id="filter-year"></select>
         </div>
         
         <h3>Balance del Período</h3>
@@ -502,13 +496,15 @@
 
     <div class="history-card">
         <h2>Historial de Movimientos</h2>
-        <ul id="tx-list" class="list">
-            </ul>
+        <ul id="tx-list" class="list"></ul>
     </div>
 
     <div class="chart-card" id="chart-card-box">
         <h2>📊 Distribución de Egresos</h2>
-        <div class="chart-container">
+        <button class="btn-secondary-ai" id="btn-render-chart" style="width: 100%; margin-bottom: 15px; background-color: #34495e;">
+            Ver Gráfico Agrupado con IA 🤖
+        </button>
+        <div class="chart-container" id="canvas-container" style="display: none;">
             <canvas id="expenses-chart"></canvas>
         </div>
     </div>
@@ -569,14 +565,12 @@
         appId: "1:619984664390:web:a90f4dcb91a1c5d06cd747"
     };
 
-    // Inicializar Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();
     const txCollection = collection(db, "transacciones");
 
-    // Elementos del DOM
     const loginContainer = document.getElementById('login-container');
     const appContainer = document.getElementById('app-container');
     const btnLogin = document.getElementById('btn-login');
@@ -602,7 +596,6 @@
     const btnAi = document.getElementById('btn-ai-analyze');
     const aiResponseBox = document.getElementById('ai-response-box');
     
-    // Selectores IA
     const aiMode = document.getElementById('ai-mode');
     const containerAiRange = document.getElementById('container-ai-range');
     const containerAiSpecific = document.getElementById('container-ai-specific');
@@ -612,7 +605,6 @@
     const aiMonthAInput = document.getElementById('ai-month-a');
     const aiMonthBInput = document.getElementById('ai-month-b');
 
-    // Elementos Carga Rápida / Switch
     const fastCardContainer = document.getElementById('fast-card-container');
     const fastTitle = document.getElementById('fast-title');
     const modeSwitch = document.getElementById('mode-switch');
@@ -623,11 +615,13 @@
     const mpUserSelectorGroup = document.getElementById('mp-user-selector-group');
     const mpDefaultUser = document.getElementById('mp-default-user');
 
+    const btnRenderChart = document.getElementById('btn-render-chart');
+    const canvasContainer = document.getElementById('canvas-container');
+
     let unsubscribeSnapshot = null;
     let todasLasTransacciones = [];
     let myChart = null; 
 
-    // Configurar fechas de hoy por defecto
     const hoy = new Date();
     const anioActual = hoy.getFullYear();
     const mesActual = String(hoy.getMonth() + 1).padStart(2, '0');
@@ -644,10 +638,8 @@
     aiMonthAInput.value = `${anioPasado}-${mesPasadoStr}`;
     aiMonthBInput.value = `${anioActual}-${mesActual}`;
 
-    // Control del Switch de Modo (Carga Rápida vs Mercado Pago)
     modeSwitch.addEventListener('change', () => {
         if (modeSwitch.checked) {
-            // Modo Mercado Pago
             fastCardContainer.classList.add('mp-active');
             fastTitle.innerHTML = '💙 Importar de Mercado Pago';
             fastTitle.style.color = 'var(--mp-color)';
@@ -658,7 +650,6 @@
             btnProcessRaw.style.backgroundColor = 'var(--mp-color)';
             btnProcessRaw.innerText = 'Interpretar Datos de Mercado Pago 💸';
         } else {
-            // Modo Texto Libre
             fastCardContainer.classList.remove('mp-active');
             fastTitle.innerHTML = '💬 Carga Rápida (Texto Libre)';
             fastTitle.style.color = 'var(--primary)';
@@ -743,7 +734,6 @@
         txList.innerHTML = '';
         let income = 0;
         let expenses = 0;
-        const distribucionGastos = {};
 
         todasLasTransacciones.forEach((tx) => {
             const [anioTx, mesTx, diaTx] = tx.date.split('-');
@@ -755,9 +745,6 @@
                     income += tx.amount;
                 } else {
                     expenses += tx.amount;
-                    const descSimplificada = tx.description.trim().toLowerCase();
-                    const descCapitalizada = descSimplificada.charAt(0).toUpperCase() + descSimplificada.slice(1);
-                    distribucionGastos[descCapitalizada] = (distribucionGastos[descCapitalizada] || 0) + tx.amount;
                 }
 
                 const fechaFormateada = `${diaTx}/${mesTx}`;
@@ -783,21 +770,77 @@
         expensesEl.innerText = `$${expenses.toFixed(2)}`;
         balanceEl.style.color = totalBalance >= 0 ? '#2ecc71' : '#e74c3c';
 
-        actualizarGrafico(distribucionGastos);
+        canvasContainer.style.display = 'none';
+        btnRenderChart.style.display = 'block';
+        btnRenderChart.innerText = "Ver Gráfico Agrupado con IA 🤖";
+        btnRenderChart.disabled = false;
+        
+        const chartCard = document.getElementById('chart-card-box');
+        if (expenses === 0) {
+            chartCard.style.display = 'none';
+        } else {
+            chartCard.style.display = 'block';
+        }
     }
 
-    function actualizarGrafico(datosEgresos) {
-        const etiquetas = Object.keys(datosEgresos);
-        const valores = Object.values(datosEgresos);
-        const chartCard = document.getElementById('chart-card-box');
+    async function actualizarGraficoInteligente(listadoGastos, totalGastos) {
+        const ctx = document.getElementById('expenses-chart').getContext('2d');
+        const apiKey = localStorage.getItem('gemini_api_key');
 
-        if (etiquetas.length === 0) {
-            chartCard.style.display = 'none';
+        if (!apiKey) {
+            alert("Falta configurar la API Key de Gemini.");
             return;
         }
-        
-        chartCard.style.display = 'block';
-        const ctx = document.getElementById('expenses-chart').getContext('2d');
+
+        const promptClasificador = `
+            Actúa como un extractor de datos financieros. Te voy a dar una lista de gastos de una pareja (Nico y Ceci).
+            Tu única tarea es agruparlos en un máximo de 6 categorías globales, lógicas y limpias (por ejemplo: "Supermercado y Comida", "Salud", "Servicios y Hogar", "Transporte y Auto", "Salidas y Ocio", "Varios").
+            Identifica marcas comunes de Argentina (ej: Grido es heladería/ocio, Coto/Chino es supermercado).
+            Suma los montos de los gastos que correspondan a la misma categoría.
+
+            Lista de gastos raw:
+            ${JSON.stringify(listadoGastos)}
+
+            Devuelve EXCLUSIVAMENTE un objeto JSON plano donde las claves sean los nombres de las categorías y los valores sean la suma numérica de los montos correspondientes. No agregues texto introductorio, ni bloques de código markdown (\`\`\`), ni explicaciones.
+            Ejemplo de salida exacta:
+            {"Supermercado y Comida": 45000, "Servicios y Hogar": 12000, "Salidas y Ocio": 8500}
+        `;
+
+        const modelosAIntentar = ['gemini-2.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash'];
+        let datosAgrupados = null;
+
+        for (const modelo of modelosAIntentar) {
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        contents: [{ parts: [{ text: promptClasificador }] }],
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
+
+                if (response.ok) {
+                    const resJson = await response.json();
+                    const textoRespuesta = resJson.candidates[0].content.parts[0].text;
+                    datosAgrupados = JSON.parse(textoRespuesta.trim());
+                    break; 
+                }
+            } catch (e) {
+                console.warn(`Falló agrupación con ${modelo}, reintentando...`);
+            }
+        }
+
+        if (!datosAgrupados) {
+            datosAgrupados = {};
+            listadoGastos.forEach(g => {
+                datosAgrupados[g.descripcion] = (datosAgrupados[g.descripcion] || 0) + g.monto;
+            });
+        }
+
+        const etiquetas = Object.keys(datosAgrupados);
+        const valores = Object.values(datosAgrupados);
 
         if (myChart) {
             myChart.destroy();
@@ -810,8 +853,7 @@
                 datasets: [{
                     data: valores,
                     backgroundColor: [
-                        '#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', 
-                        '#1abc9c', '#e67e22', '#34495e', '#e84393', '#fdcb6e'
+                        '#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', '#e67e22'
                     ],
                     borderWidth: 1
                 }]
@@ -820,11 +862,17 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false },
+                    legend: { 
+                        display: true,
+                        position: 'bottom',
+                        labels: { boxWidth: 10, font: { size: 11 } }
+                    },
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                return ` ${context.label}: $${context.raw.toFixed(2)}`;
+                                const valor = context.raw;
+                                const porcentaje = ((valor / totalGastos) * 100).toFixed(1);
+                                return ` ${context.label}: $${valor.toFixed(2)} (${porcentaje}%)`;
                             }
                         }
                     }
@@ -832,6 +880,37 @@
             }
         });
     }
+
+    btnRenderChart.addEventListener('click', async () => {
+        const apiKey = localStorage.getItem('gemini_api_key');
+        if (!apiKey) {
+            alert("Por favor, hacé clic en el engranaje ⚙️ arriba a la derecha e ingresá tu API Key.");
+            return;
+        }
+
+        btnRenderChart.disabled = true;
+        btnRenderChart.innerText = "🤖 Gemini está procesando los rubros...";
+
+        const listaGastosMes = todasLasTransacciones
+            .filter(tx => {
+                const [anioTx, mesTx] = tx.date.split('-');
+                return anioTx === filterYear.value && mesTx === filterMonth.value && tx.type === 'expense';
+            })
+            .map(tx => ({ descripcion: tx.description, monto: tx.amount }));
+
+        const totalGastos = listaGastosMes.reduce((sum, tx) => sum + tx.monto, 0);
+
+        if (listaGastosMes.length === 0) {
+            alert("No hay gastos registrados en este período para agrupar.");
+            btnRenderChart.disabled = false;
+            btnRenderChart.innerText = "Ver Gráfico Agrupado con IA 🤖";
+            return;
+        }
+
+        canvasContainer.style.display = 'block';
+        await actualizarGraficoInteligente(listaGastosMes, totalGastos);
+        btnRenderChart.style.display = 'none';
+    });
 
     filterMonth.addEventListener('change', renderizarYFiltrar);
     filterYear.addEventListener('change', renderizarYFiltrar);
@@ -865,237 +944,214 @@
         }
     });
 
-// ==========================================
-// PROCESAMIENTO UNIFICADO (TEXTO LIBRE / MERCADO PAGO) CORREGIDO
-// ==========================================
-btnProcessRaw.addEventListener('click', async () => {
-    const textoOriginal = rawTextInput.value.trim();
-    if (!textoOriginal) {
-        alert("Por favor, escribí o pegá un texto primero.");
-        return;
-    }
+    btnProcessRaw.addEventListener('click', async () => {
+        const textoOriginal = rawTextInput.value.trim();
+        if (!textoOriginal) {
+            alert("Por favor, escribí o pegá un texto primero.");
+            return;
+        }
 
-    if (modeSwitch.checked) {
-        // --- MODO MERCADO PAGO OPTIMIZADO PARA COPIADO DE WEB ---
-        const lineas = textoOriginal.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-        let transaccionesDetectadas = [];
-        let i = 0;
-        
-        // Variables de fecha por defecto
-        let fechaActualStr = hoy.toISOString().split('T')[0];
-        const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+        if (modeSwitch.checked) {
+            const lineas = textoOriginal.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            let transaccionesDetectadas = [];
+            let i = 0;
+            
+            let fechaActualStr = hoy.toISOString().split('T')[0];
+            const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
-        while (i < lineas.length) {
-            const linea = lineas[i];
+            while (i < lineas.length) {
+                const linea = lineas[i];
 
-            // 1. Detectar Cambios de Fecha en el lote
-            if (linea.toLowerCase() === "hoy") {
-                fechaActualStr = hoy.toISOString().split('T')[0];
-                i++;
-                continue;
-            } else if (linea.toLowerCase() === "ayer") {
-                const ayer = new Date();
-                ayer.setDate(ayer.getDate() - 1);
-                fechaActualStr = ayer.toISOString().split('T')[0];
-                i++;
-                continue;
-            } else {
-                const matchFecha = linea.match(/^(\d+)\s+de\s+([a-z]+)/i);
-                if (matchFecha) {
-                    const dia = parseInt(matchFecha[1]);
-                    const mesStr = matchFecha[2].toLowerCase();
-                    const numMes = meses.indexOf(mesStr);
-                    if (numMes !== -1) {
-                        const anioParaFecha = hoy.getFullYear();
-                        const fechaTemp = new Date(anioParaFecha, numMes, dia);
-                        fechaActualStr = fechaTemp.toISOString().split('T')[0];
-                    }
+                if (linea.toLowerCase() === "hoy") {
+                    fechaActualStr = hoy.toISOString().split('T')[0];
                     i++;
                     continue;
-                }
-            }
-
-            // 2. Si detectamos un signo de operación solo ("-" o "+")
-            if (linea === "-" || linea === "+") {
-                const tipo = (linea === "+") ? "income" : "expense";
-                
-                // El signo pesos suele estar en la siguiente línea o en la misma.
-                if (i + 1 < lineas.length && lineas[i + 1] === "$") {
-                    let offset = 2;
-                    let parteEntera = lineas[i + offset] || "";
-                    let parteDecimal = "00";
-
-                    // Manejar decimales que puedan venir en líneas siguientes debido al copiado
-                    if (i + offset + 1 < lineas.length && lineas[i + offset + 1] === ",") {
-                        parteDecimal = lineas[i + offset + 2] || "00";
-                        offset += 2;
-                    } else if (i + offset + 1 < lineas.length && lineas[i + offset + 1].startsWith(",")) {
-                        parteDecimal = lineas[i + offset + 1].replace(",", "").trim();
-                        offset++;
-                    } else if (i + offset + 1 < lineas.length && /^\d{2}$/.test(lineas[i + offset + 1])) {
-                        parteDecimal = lineas[i + offset + 1].trim();
-                        offset++;
+                } else if (linea.toLowerCase() === "ayer") {
+                    const ayer = new Date();
+                    ayer.setDate(ayer.getDate() - 1);
+                    fechaActualStr = ayer.toISOString().split('T')[0];
+                    i++;
+                    continue;
+                } else {
+                    const matchFecha = linea.match(/^(\d+)\s+de\s+([a-z]+)/i);
+                    if (matchFecha) {
+                        const dia = parseInt(matchFecha[1]);
+                        const mesStr = matchFecha[2].toLowerCase();
+                        const numMes = meses.indexOf(mesStr);
+                        if (numMes !== -1) {
+                            const anioParaFecha = hoy.getFullYear();
+                            const fechaTemp = new Date(anioParaFecha, numMes, dia);
+                            fechaActualStr = fechaTemp.toISOString().split('T')[0];
+                        }
+                        i++;
+                        continue;
                     }
+                }
 
-                    // Limpiar y parsear monto
-                    const valorLimpio = parteEntera.replace(/\./g, "") + "." + parteDecimal;
-                    const monto = parseFloat(valorLimpio);
+                if (linea === "-" || linea === "+") {
+                    const tipo = (linea === "+") ? "income" : "expense";
+                    
+                    if (i + 1 < lineas.length && lineas[i + 1] === "$") {
+                        let offset = 2;
+                        let parteEntera = lineas[i + offset] || "";
+                        let parteDecimal = "00";
 
-                    // 3. Buscar descripción real hacia atrás (recorriendo en reversa)
-                    let idxDesc = i - 1;
-                    let descripcionEncontrada = "";
-
-                    while (idxDesc >= 0) {
-                        const lAtras = lineas[idxDesc].trim();
-
-                        // Cortamos la búsqueda si nos topamos con otra transacción o una fecha nueva
-                        if (lAtras === "-" || lAtras === "+" || lAtras.toLowerCase() === "hoy" || lAtras.toLowerCase() === "ayer" || lAtras.match(/^\d+\s+de\s+[a-z]+/i)) {
-                            break;
+                        if (i + offset + 1 < lineas.length && lineas[i + offset + 1] === ",") {
+                            parteDecimal = lineas[i + offset + 2] || "00";
+                            offset += 2;
+                        } else if (i + offset + 1 < lineas.length && lineas[i + offset + 1].startsWith(",")) {
+                            parteDecimal = lineas[i + offset + 1].replace(",", "").trim();
+                            offset++;
+                        } else if (i + offset + 1 < lineas.length && /^\d{2}$/.test(lineas[i + offset + 1])) {
+                            parteDecimal = lineas[i + offset + 1].trim();
+                            offset++;
                         }
 
-                        // Filtros de descarte de basura del copiado de Mercado Pago
-                        const esHora = /^\d{1,2}:\d{2}$/.test(lAtras);
-                        const esMontoOSigno = /^[\d\.,\s]+$/.test(lAtras) || lAtras === "$";
-                        
-                        const palabrasBasura = [
-                            "dinero disponible", "aprobado", "compra", "transferencia enviada", 
-                            "ingreso de dinero", "con transferencia", "transferencia recibida", 
-                            "visa crédito", "pago en tienda física", "visa débito", "mastercard", 
-                            "tarjeta", "débito", "crédito", "entidad:", "banco provincia", "mercado pago"
-                        ];
-                        
-                        const esPalabraBasura = palabrasBasura.some(pb => lAtras.toLowerCase().includes(pb)) || lAtras === "-";
+                        const valorLimpio = parteEntera.replace(/\./g, "") + "." + parteDecimal;
+                        const monto = parseFloat(valorLimpio);
 
-                        // Si no es ninguno de los filtros de descarte, encontramos una línea de texto válida
-                        if (!esHora && !esMontoOSigno && !esPalabraBasura) {
-                            // Mercado Pago suele duplicar el nombre (ej. "Big Pizza\nBig Pizza").
-                            if (idxDesc - 1 >= 0 && lineas[idxDesc - 1].trim().toLowerCase() === lAtras.toLowerCase()) {
-                                descripcionEncontrada = lineas[idxDesc - 1].trim();
-                            } else {
-                                descripcionEncontrada = lAtras;
+                        let idxDesc = i - 1;
+                        let descripcionEncontrada = "";
+
+                        while (idxDesc >= 0) {
+                            const lAtras = lineas[idxDesc].trim();
+
+                            if (lAtras === "-" || lAtras === "+" || lAtras.toLowerCase() === "hoy" || lAtras.toLowerCase() === "ayer" || lAtras.match(/^\d+\s+de\s+[a-z]+/i)) {
+                                break;
                             }
-                            break; // Ya tenemos el nombre real del comercio o persona
+
+                            const esHora = /^\d{1,2}:\d{2}$/.test(lAtras);
+                            const esMontoOSigno = /^[\d\.,\s]+$/.test(lAtras) || lAtras === "$";
+                            
+                            const palabrasBasura = [
+                                "dinero disponible", "aprobado", "compra", "transferencia enviada", 
+                                "ingreso de dinero", "con transferencia", "transferencia recibida", 
+                                "visa crédito", "pago en tienda física", "visa débito", "mastercard", 
+                                "tarjeta", "débito", "crédito", "entidad:", "banco provincia", "mercado pago"
+                            ];
+                            
+                            const esPalabraBasura = palabrasBasura.some(pb => lAtras.toLowerCase().includes(pb)) || lAtras === "-";
+
+                            if (!esHora && !esMontoOSigno && !esPalabraBasura) {
+                                if (idxDesc - 1 >= 0 && lineas[idxDesc - 1].trim().toLowerCase() === lAtras.toLowerCase()) {
+                                    descripcionEncontrada = lineas[idxDesc - 1].trim();
+                                } else {
+                                    descripcionEncontrada = lAtras;
+                                }
+                                break;
+                            }
+                            idxDesc--;
                         }
-                        idxDesc--;
+
+                        if (!descripcionEncontrada) {
+                            descripcionEncontrada = (tipo === "income") ? "Ingreso de dinero" : "Gasto General";
+                        }
+
+                        descripcionEncontrada = descripcionEncontrada
+                            .replace(/pagaste a/gi, '')
+                            .replace(/transferencia enviada a/gi, '')
+                            .replace(/transferencia recibida de/gi, '')
+                            .replace(/[\.\-\s]+$/, '')
+                            .trim();
+
+                        if (descripcionEncontrada.length > 0) {
+                            descripcionEncontrada = descriptionEncontrada.charAt(0).toUpperCase() + descripcionEncontrada.slice(1);
+                        }
+
+                        if (!isNaN(monto) && monto > 0) {
+                            transaccionesDetectadas.push({
+                                description: descripcionEncontrada,
+                                amount: monto,
+                                date: fechaActualStr,
+                                type: tipo,
+                                user: mpDefaultUser.value
+                            });
+                        }
+                        i += offset;
                     }
+                }
+                i++;
+            }
 
-                    // Fallback si falló la búsqueda en reversa
-                    if (!descripcionEncontrada) {
-                        descripcionEncontrada = (tipo === "income") ? "Ingreso de dinero" : "Gasto General";
-                    }
-
-                    // Limpieza final estética de la descripción (elimina guiones, puntos y textos de transferencia)
-                    descripcionEncontrada = descripcionEncontrada
-                        .replace(/pagaste a/gi, '')
-                        .replace(/transferencia enviada a/gi, '')
-                        .replace(/transferencia recibida de/gi, '')
-                        .replace(/[\.\-\s]+$/, '') // Limpia puntos o guiones al final (Ej: "S.C.S. .-" -> "S.C.S")
-                        .trim();
-
-                    // Formatear lindo (Primera letra Mayúscula)
-                    if (descripcionEncontrada.length > 0) {
-                        descripcionEncontrada = descripcionEncontrada.charAt(0).toUpperCase() + descripcionEncontrada.slice(1);
-                    }
-
-                    if (!isNaN(monto) && monto > 0) {
-                        transaccionesDetectadas.push({
-                            description: descripcionEncontrada,
-                            amount: monto,
-                            date: fechaActualStr,
-                            type: tipo,
-                            user: mpDefaultUser.value
+            if (transaccionesDetectadas.length > 0) {
+                let guardados = 0;
+                for (const tx of transaccionesDetectadas) {
+                    try {
+                        await addDoc(txCollection, {
+                            ...tx,
+                            createdAt: Date.now()
                         });
+                        guardados++;
+                    } catch (err) {
+                        console.error("Error al guardar:", err);
                     }
-                    i += offset; // Avanzar el cursor de líneas saltando la parte del dinero procesada
                 }
+                rawTextInput.value = "";
+                alert(`¡Se procesaron e importaron con éxito ${guardados} movimientos a la base de datos!`);
+            } else {
+                alert("No pudimos extraer transacciones estructuradas de este bloque de texto.");
             }
-            i++;
-        }
 
-        // 4. Guardar en Firestore de forma directa
-        if (transaccionesDetectadas.length > 0) {
-            let guardados = 0;
-            for (const tx of transaccionesDetectadas) {
-                try {
-                    await addDoc(txCollection, {
-                        ...tx,
-                        createdAt: Date.now()
-                    });
-                    guardados++;
-                } catch (err) {
-                    console.error("Error al guardar:", err);
-                }
+        } else {
+            let texto = textoOriginal.toLowerCase();
+            const regexMonto = /(?:[\$]?)\s*(\d+(?:[\.,]\d{3})*(?:[\.,]\d{2})?)/;
+            const coincidenciaMonto = texto.match(regexMonto);
+            let monto = 0;
+            if (coincidenciaMonto) {
+                let montoLimpio = coincidenciaMonto[1].replace(/\./g, '').replace(',', '.');
+                monto = parseFloat(montoLimpio);
             }
+
+            let usuario = "Ambos";
+            if (texto.includes("ceci") || texto.includes("cecilia") || texto.includes("chechu")) {
+                usuario = "Ceci";
+            } else if (texto.includes("nico") || texto.includes("nicolas") || texto.includes("nick")) {
+                usuario = "Nico";
+            }
+
+            let tipo = "expense";
+            if (texto.includes("gane") || texto.includes("sueldo") || texto.includes("ingreso") || texto.includes("me pagaron") || texto.includes("cobre")) {
+                tipo = "income";
+            }
+
+            const fechaObj = new Date();
+            if (texto.includes("ayer")) {
+                fechaObj.setDate(fechaObj.getDate() - 1);
+            }
+            const fechaFormateada = fechaObj.toISOString().split('T')[0];
+
+            let descripcion = textoOriginal;
+            if (coincidenciaMonto) {
+                descripcion = descripcion.replace(coincidenciaMonto[0], '');
+            }
+
+            const removerPalabras = [
+                /\bceci\b/gi, /\bcecilia\b/gi, /\bchechu\b/gi, /\bnico\b/gi, /\bnicolas\b/gi, /\bayer\b/gi,
+                /\bgastamos\b/gi, /\bgasté\b/gi, /\bgaste\b/gi, /\bcompramos\b/gi, /\bpagué\b/gi, /\bpague\b/gi,
+                /\ben\b/gi, /\bpara\b/gi, /\bel\b/gi, /\bla\b/gi, /\blos\b/gi, /\bde\b/gi, /\bun\b/gi, /\buna\b/gi
+            ];
+            removerPalabras.forEach(regex => {
+                descripcion = descripcion.replace(regex, '');
+            });
+            descripcion = descripcion.replace(/[-:,]/g, '').replace(/\s+/g, ' ').trim();
+
+            if (descripcion.length > 0) {
+                descripcion = descripcion.charAt(0).toUpperCase() + descripcion.slice(1);
+            } else {
+                descripcion = "Varios";
+            }
+
+            descriptionInput.value = descripcion;
+            amountInput.value = monto > 0 ? monto : '';
+            dateInput.value = fechaFormateada;
+            typeInput.value = tipo;
+            userInput.value = usuario;
+
             rawTextInput.value = "";
-            alert(`¡Se procesaron e importaron con éxito ${guardados} movimientos a la base de datos!`);
-        } else {
-            alert("No pudimos extraer transacciones estructuradas de este bloque de texto. Comprobá que incluya los montos y los signos + o -.");
+            alert(`¡Carga rápida procesada! Confirmá los detalles en el formulario superior y guardá.`);
         }
+    });
 
-    } else {
-        // --- MODO TEXTO LIBRE (Original) ---
-        let texto = textoOriginal.toLowerCase();
-        const regexMonto = /(?:[\$]?)\s*(\d+(?:[\.,]\d{3})*(?:[\.,]\d{2})?)/;
-        const coincidenciaMonto = texto.match(regexMonto);
-        let monto = 0;
-        if (coincidenciaMonto) {
-            let montoLimpio = coincidenciaMonto[1].replace(/\./g, '').replace(',', '.');
-            monto = parseFloat(montoLimpio);
-        }
-
-        let usuario = "Ambos";
-        if (texto.includes("ceci") || texto.includes("cecilia") || texto.includes("chechu")) {
-            usuario = "Ceci";
-        } else if (texto.includes("nico") || texto.includes("nicolas") || texto.includes("nick")) {
-            usuario = "Nico";
-        }
-
-        let tipo = "expense";
-        if (texto.includes("gane") || texto.includes("sueldo") || texto.includes("ingreso") || texto.includes("me pagaron") || texto.includes("cobre")) {
-            tipo = "income";
-        }
-
-        const fechaObj = new Date();
-        if (texto.includes("ayer")) {
-            fechaObj.setDate(fechaObj.getDate() - 1);
-        }
-        const fechaFormateada = fechaObj.toISOString().split('T')[0];
-
-        let descripcion = textoOriginal;
-        if (coincidenciaMonto) {
-            descripcion = descripcion.replace(coincidenciaMonto[0], '');
-        }
-
-        const removerPalabras = [
-    /\bceci\b/gi, /\bcecilia\b/gi, /\bchechu\b/gi, /\bnico\b/gi, /\bnicolas\b/gi, /\bayer\b/gi,
-    /\bgastamos\b/gi, /\bgasté\b/gi, /\bgaste\b/gi, /\bcompramos\b/gi, /\bpagué\b/gi, /\bpague\b/gi,
-    /\ben\b/gi, /\bpara\b/gi, /\bel\b/gi, /\bla\b/gi, /\blos\b/gi, /\bde\b/gi, /\bun\b/gi, /\buna\b/gi
-];
-        removerPalabras.forEach(regex => {
-            descripcion = descripcion.replace(regex, '');
-        });
-        descripcion = descripcion.replace(/[-:,]/g, '').replace(/\s+/g, ' ').trim();
-
-        if (descripcion.length > 0) {
-            descripcion = descripcion.charAt(0).toUpperCase() + descripcion.slice(1);
-        } else {
-            descripcion = "Varios";
-        }
-
-        descriptionInput.value = descripcion;
-        amountInput.value = monto > 0 ? monto : '';
-        dateInput.value = fechaFormateada;
-        typeInput.value = tipo;
-        userInput.value = usuario;
-
-        rawTextInput.value = "";
-        alert(`¡Carga rápida procesada! Confirmá los detalles en el formulario superior y guardá.`);
-    }
-});
-
-    // ==========================================
-    // CONSULTA CON IA (GEMINI)
-    // ==========================================
     btnAi.addEventListener('click', async () => {
         const apiKey = localStorage.getItem('gemini_api_key');
         if (!apiKey) {
